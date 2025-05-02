@@ -240,8 +240,8 @@ global.chatWithGPT = async (data_msg, newMsg) => {
                 })
             })
         ).json();
-        if (!answ.status) return chatWithGPT(messages);
-        if (!isJSON(extractAnswer(answ.data.choices[0].message.content)))
+        if (!answ.status !== 200) return chatWithGPT(messages);
+        if (!isJSON(extractAnswer(answ.result.choices[0].message.content)))
             return chatWithGPT(messages);
         if (
             typeof extractAnswer(answ.data.choices[0].message.content) ===
