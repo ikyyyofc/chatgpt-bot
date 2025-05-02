@@ -10,11 +10,7 @@ const {
 const Pino = require("pino"),
     fs = require("fs"),
     colors = require("@colors/colors/safe"),
-    {
-        connectDB,
-        getOrCreateChat,
-        updateChat
-    } = require("./database");
+    { connectDB, getOrCreateChat, updateChat } = require("./database");
 const { jsonFormat, simpleBind } = require("./lib/simple");
 const gemini = require("./lib/gemini");
 const OpenAI = require("openai");
@@ -88,7 +84,9 @@ function extractAnswer(input, getAnalysis = false) {
     const match = input.match(regex);
 
     if (getAnalysis) {
-        return match[1] ? match[1].replace(/\n|\\n/g, " ").trim() : "No Thinking...";
+        return match[1]
+            ? match[1].replace(/\n|\\n/g, " ").trim()
+            : "No Thinking...";
     } else {
         return (match[2] || match[3]).trim();
     }
@@ -99,15 +97,19 @@ global.chatWithGPT = async (data_msg, newMsg) => {
     try {
         const model = "deepseek-ai/DeepSeek-R1";
 
-        const answ = await axios.post("https://fastrestapis.fasturl.cloud/aillm/deepseek", {
-    messages,
-    model
-  }, {
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-  console.log(answ.data)
+        const answ = await axios.post(
+            "https://fastrestapis.fasturl.cloud/aillm/deepseek",
+            {
+                messages,
+                model
+            },
+            {
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+        console.log(answ.data);
         /*if (answ.status !== 200) return chatWithGPT(messages);
         if (!isJSON(extractAnswer(answ.result.choices[0].message.content)))
             return chatWithGPT(messages);
@@ -143,7 +145,7 @@ const connect = async () => {
         logger: Pino({ level: "silent" })
     });
     simpleBind(kyy);
-    
+
     if (
         config.pairing &&
         config.pairing.state &&
@@ -166,7 +168,7 @@ const connect = async () => {
             } catch {}
         }, 3000);
     }
-    
+
     kyy.ev.on("creds.update", saveCreds);
     kyy.ev.on("connection.update", async update => {
         const { connection, lastDisconnect } = update;
@@ -184,7 +186,7 @@ const connect = async () => {
                 connect();
         }
     });
-    
+
     kyy.ev.on("messages.upsert", async ({ messages }) => {
         const m = messages[0];
         const text =
@@ -200,7 +202,7 @@ const connect = async () => {
                 kyy.groupLeave(m.key.remoteJid);
             }, 5000);
         }
-        
+
         if (!m.key.fromMe && !m.key.remoteJid.endsWith("@g.us")) {
             if (text !== "") {
                 kyy.readMessages([m.key]).then(() => {
@@ -213,25 +215,28 @@ const connect = async () => {
                                 "composing",
                                 m.key.remoteJid
                             ).then(() => {
-                                const msgnew = chat.conversations.map(
-                                    ({ role, content }) => ({ role, content })
-                                );
+                                chatWithGPT(chat.conversations, text).then(
+                                    response => {
+                                        let answer = extractAnswer(response);
 
-                                chatWithGPT(msgnew, text).then(response => {
-                                    let answer = extractAnswer(response);
-                                    
-                                    let think = extractAnswer(response, true);
-                                    kyy.reply(
-                                        m.key.remoteJid,
-                                        jsonFormat(`> ${think}\n\n${answer}`),
-                                        m
-                                    ).then(a => {
-                                        updateChat(chat, {
-                                            role: "assistant",
-                                            content: response
+                                        let think = extractAnswer(
+                                            response,
+                                            true
+                                        );
+                                        kyy.reply(
+                                            m.key.remoteJid,
+                                            jsonFormat(
+                                                `> ${think}\n\n${answer}`
+                                            ),
+                                            m
+                                        ).then(a => {
+                                            updateChat(chat, {
+                                                role: "assistant",
+                                                content: response
+                                            });
                                         });
-                                    });
-                                });
+                                    }
+                                );
                             });
                         });
                     });
@@ -239,7 +244,7 @@ const connect = async () => {
             }
         }
     });
-    
+
     kyy.ev.on("call", async call => {
         const { status, id, from } = call[0];
         if (status === "offer") {
