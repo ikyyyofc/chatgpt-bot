@@ -244,15 +244,15 @@ global.chatWithGPT = async (data_msg, newMsg) => {
         if (!isJSON(extractAnswer(answ.result.choices[0].message.content)))
             return chatWithGPT(messages);
         if (
-            typeof extractAnswer(answ.data.choices[0].message.content) ===
+            typeof extractAnswer(answ.result.choices[0].message.content) ===
                 "undefined" ||
-            typeof extractAnswer(answ.data.choices[0].message.content) ===
+            typeof extractAnswer(answ.result.choices[0].message.content) ===
                 undefined ||
-            extractAnswer(answ.data.choices[0].message.content) === "undefined"
+            extractAnswer(answ.result.choices[0].message.content) === "undefined"
         )
             return chatWithGPT(messages);
-        let think = extractAnswer(answ.data.choices[0].message.content, true);
-        let answer = answ.data.choices[0].message.content;
+        let think = extractAnswer(answ.result.choices[0].message.content, true);
+        let answer = answ.result.choices[0].message.content;
 
         return answer;
     } catch (er) {
