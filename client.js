@@ -9,6 +9,7 @@ const {
 } = baileys;
 const Pino = require("pino"),
     fs = require("fs"),
+    colors = require("@colors/colors/safe"),
     {
         connectDB,
         getOrCreateChat,
