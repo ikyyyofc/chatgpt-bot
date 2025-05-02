@@ -99,19 +99,16 @@ global.chatWithGPT = async (data_msg, newMsg) => {
     try {
         const model = "deepseek-ai/DeepSeek-R1";
 
-        let answ = await (
-            await fetch("https://fastrestapis.fasturl.cloud/aillm/deepseek", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    messages,
-                    model
-                })
-            })
-        ).json();
-        if (answ.status !== 200) return chatWithGPT(messages);
+        const answ = await axios.post("https://fastrestapis.fasturl.cloud/aillm/deepseek", {
+    messages,
+    model
+  }, {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+  console.log(answ.data)
+        /*if (answ.status !== 200) return chatWithGPT(messages);
         if (!isJSON(extractAnswer(answ.result.choices[0].message.content)))
             return chatWithGPT(messages);
         if (
@@ -123,7 +120,7 @@ global.chatWithGPT = async (data_msg, newMsg) => {
         )
             return chatWithGPT(messages);
         
-        return answ.result.choices[0].message.content;
+        return answ.result.choices[0].message.content;*/
     } catch (er) {
         console.error(er);
         return chatWithGPT(messages);
