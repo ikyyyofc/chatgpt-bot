@@ -221,11 +221,11 @@ const connect = async () => {
 
                                 chatWithGPT(msgnew, text).then(response => {
                                     let answer = extractAnswer(response);
-                                    let out = JSON.parse(answer);
+                                    
                                     let think = extractAnswer(response, true);
                                     kyy.reply(
                                         m.key.remoteJid,
-                                        jsonFormat(`> ${think}\n\n${out.output}`),
+                                        jsonFormat(`> ${think}\n\n${answer}`),
                                         m
                                     ).then(a => {
                                         updateChat(chat, {
