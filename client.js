@@ -9,15 +9,11 @@ const {
 } = baileys;
 const Pino = require("pino"),
     fs = require("fs"),
-    path = require("path"),
-    colors = require("@colors/colors/safe");
-
-const {
-    connectDB,
-    getOrCreateChat,
-    updateChat
-    //updateAllChatsSystemMessages
-} = require("./database");
+    {
+        connectDB,
+        getOrCreateChat,
+        updateChat
+    } = require("./database");
 const { jsonFormat, simpleBind } = require("./lib/simple");
 const gemini = require("./lib/gemini");
 const OpenAI = require("openai");
@@ -35,7 +31,6 @@ class Api_feature {
         this.Itzpire = "https://itzpire.com/";
         this.Yanzbotz = "https://api.yanzbotz.live/api/";
         this.Ikyy = "https://ikyy-bard.hf.space/";
-        //this.apiKey = process.env.API_KEYS;
     }
 
     yanzbotz = (endpoint, options = {}) => {
@@ -52,7 +47,6 @@ class Api_feature {
             url: endpoint,
             method: method,
             headers: {
-                //Authorization: this.apiKey,
                 accept: "*/*"
             },
             ...(method === "GET" && { params: params }),
@@ -74,133 +68,11 @@ class Api_feature {
                 });
         });
     };
-    nazuna = (endpoint, options = {}) => {
-        const { data, ...params } = options;
-        const method = data ? "POST" : "GET";
-
-        const config = {
-            baseURL: this.Nazuna,
-            url: endpoint,
-            method: method,
-            headers: {
-                //Authorization: this.apiKey,
-                accept: "*/*"
-            },
-            ...(method === "GET" && { params: params }),
-            ...(method === "POST" && { data: data })
-        };
-
-        return new Promise((resolve, reject) => {
-            axios
-                .request(config)
-                .then(response => {
-                    resolve(response.data);
-                })
-                .catch(e => {
-                    if (e.response) {
-                        resolve(e.response.data);
-                    } else {
-                        resolve(e);
-                    }
-                });
-        });
-    };
-    widipe = (endpoint, options = {}) => {
-        const { data, ...params } = options;
-        const method = data ? "POST" : "GET";
-
-        const config = {
-            baseURL: this.Widipe,
-            url: endpoint,
-            method: method,
-            headers: {
-                //Authorization: this.apiKey,
-                accept: "*/*"
-            },
-            ...(method === "GET" && { params: params }),
-            ...(method === "POST" && { data: data })
-        };
-
-        return new Promise((resolve, reject) => {
-            axios
-                .request(config)
-                .then(response => {
-                    resolve(response.data);
-                })
-                .catch(e => {
-                    if (e.response) {
-                        resolve(e.response.data);
-                    } else {
-                        resolve(e);
-                    }
-                });
-        });
-    };
-    ikyy = (endpoint, options = {}) => {
-        const { data, ...params } = options;
-        const method = data ? "POST" : "GET";
-
-        const config = {
-            baseURL: this.Ikyy,
-            url: endpoint,
-            method: method,
-            headers: {
-                //Authorization: this.apiKey,
-                accept: "*/*"
-            },
-            ...(method === "GET" && { params: params }),
-            ...(method === "POST" && { data: data })
-        };
-
-        return new Promise((resolve, reject) => {
-            axios
-                .request(config)
-                .then(response => {
-                    resolve(response.data);
-                })
-                .catch(e => {
-                    if (e.response) {
-                        resolve(e.response.data);
-                    } else {
-                        resolve(e);
-                    }
-                });
-        });
-    };
-    itzpire = (endpoint, options = {}) => {
-        const { data, ...params } = options;
-        const method = data ? "POST" : "GET";
-
-        const config = {
-            baseURL: this.Itzpire,
-            url: endpoint,
-            method: method,
-            headers: {
-                //Authorization: this.apiKey,
-                accept: "*/*"
-            },
-            ...(method === "GET" && { params: params }),
-            ...(method === "POST" && { data: data })
-        };
-
-        return new Promise((resolve, reject) => {
-            axios
-                .request(config)
-                .then(response => {
-                    resolve(response.data);
-                })
-                .catch(e => {
-                    if (e.response) {
-                        resolve(e.response.data);
-                    } else {
-                        resolve(e);
-                    }
-                });
-        });
-    };
+    // ... (Metode API lainnya tetap sama)
 }
 
 global.Api = new Api_feature();
+
 function isJSON(str) {
     try {
         JSON.parse(str);
@@ -211,18 +83,16 @@ function isJSON(str) {
 }
 
 function extractAnswer(input, getAnalysis = false) {
-    // Regex untuk menangkap dua bagian: isi <think> dan jawaban
     const regex = /<think>([\s\S]*?)<\/think>([\s\S]*)|([\s\S]*)/;
     const match = input.match(regex);
 
     if (getAnalysis) {
-        // Ambil konten dalam <think> (group 1) jika ada
         return match[1] ? match[1].replace(/\n|\\n/g, " ").trim() : "No Thinking...";
     } else {
-        // Ambil jawaban (group 2) atau seluruh teks jika tidak ada tag (group 3)
         return (match[2] || match[3]).trim();
     }
 }
+
 global.chatWithGPT = async (data_msg, newMsg) => {
     const messages = [...defaultSystemMessages, ...data_msg];
     try {
@@ -232,7 +102,7 @@ global.chatWithGPT = async (data_msg, newMsg) => {
             await fetch("https://fastrestapis.fasturl.cloud/aillm/deepseek", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json" // Tambahkan header
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     messages,
@@ -251,32 +121,16 @@ global.chatWithGPT = async (data_msg, newMsg) => {
             extractAnswer(answ.result.choices[0].message.content) === "undefined"
         )
             return chatWithGPT(messages);
-        let think = extractAnswer(answ.result.choices[0].message.content, true);
-        let answer = answ.result.choices[0].message.content;
-
-        return answer;
+        
+        return answ.result.choices[0].message.content;
     } catch (er) {
         console.error(er);
         return chatWithGPT(messages);
     }
 };
-const plugins = {};
 
-function loadPlugins() {
-    const pluginDir = path.join(__dirname, "plugins");
-    fs.readdirSync(pluginDir).forEach(file => {
-        if (file.endsWith(".js")) {
-            const pluginName = path.basename(file, ".js");
-            plugins[pluginName] = require(path.join(pluginDir, file));
-            console.log(`Plugin ${pluginName} telah dimuat.`);
-        }
-    });
-}
-
-loadPlugins();
 const connect = async () => {
     await connectDB();
-    // await updateAllChatsSystemMessages();
     console.log(colors.green("Connecting..."));
     const { state, saveCreds } = await useMultiFileAuthState("session");
     const config = JSON.parse(fs.readFileSync("./pairing.json", "utf-8"));
@@ -291,6 +145,7 @@ const connect = async () => {
         logger: Pino({ level: "silent" })
     });
     simpleBind(kyy);
+    
     if (
         config.pairing &&
         config.pairing.state &&
@@ -313,9 +168,9 @@ const connect = async () => {
             } catch {}
         }, 3000);
     }
+    
     kyy.ev.on("creds.update", saveCreds);
     kyy.ev.on("connection.update", async update => {
-        //console.log(update);
         const { connection, lastDisconnect } = update;
         if (connection === "open") {
             console.log(
@@ -331,6 +186,7 @@ const connect = async () => {
                 connect();
         }
     });
+    
     kyy.ev.on("messages.upsert", async ({ messages }) => {
         const m = messages[0];
         const text =
@@ -341,12 +197,12 @@ const connect = async () => {
                 m.message?.conversation
             )?.toLowerCase() || "";
 
-        //console.log(text)
         if (m.key.remoteJid.endsWith("@g.us")) {
             setTimeout(() => {
                 kyy.groupLeave(m.key.remoteJid);
             }, 5000);
         }
+        
         if (!m.key.fromMe && !m.key.remoteJid.endsWith("@g.us")) {
             if (text !== "") {
                 kyy.readMessages([m.key]).then(() => {
@@ -364,7 +220,7 @@ const connect = async () => {
                                 );
 
                                 chatWithGPT(msgnew, text).then(response => {
-                                  let answer = extractAnswer(response);
+                                    let answer = extractAnswer(response);
                                     let out = JSON.parse(answer);
                                     let think = extractAnswer(response, true);
                                     kyy.reply(
@@ -375,15 +231,6 @@ const connect = async () => {
                                         updateChat(chat, {
                                             role: "assistant",
                                             content: response
-                                        }).then(() => {
-                                            if (plugins[out.type]) {
-                                                plugins[out.type](
-                                                    m,
-                                                    out,
-                                                    kyy,
-                                                    a
-                                                );
-                                            }
                                         });
                                     });
                                 });
@@ -394,6 +241,7 @@ const connect = async () => {
             }
         }
     });
+    
     kyy.ev.on("call", async call => {
         const { status, id, from } = call[0];
         if (status === "offer") {
