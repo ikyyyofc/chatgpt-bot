@@ -226,10 +226,10 @@ function extractAnswer(input, getAnalysis = false) {
 global.chatWithGPT = async (data_msg, newMsg) => {
     const messages = [...defaultSystemMessages, ...data_msg];
     try {
-        const model = "deepseek-r1-distill-qwen-32b";
+        const model = "deepseek-ai/DeepSeek-R1";
 
         let answ = await (
-            await fetch("https://zeyndvp-api-nazuna.hf.space/api/ai/ai-chat", {
+            await fetch("https://fastrestapis.fasturl.cloud/aillm/deepseek", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json" // Tambahkan header
