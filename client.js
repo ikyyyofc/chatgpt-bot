@@ -327,39 +327,16 @@ function extractAnswer(input, getAnalysis = false) {
 }
 
 global.chatWithGPT = async (data_msg, newMsg) => {
-    const messages = [...defaultSystemMessages, ...data_msg];
     try {
-        const model = "deepseek-ai/DeepSeek-R1";
-
-        const answ = await axios.post(
-            "https://fastrestapis.fasturl.cloud/aillm/deepseek",
-            {
-                messages,
-                model
-            },
-            {
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            }
-        );
-        console.log(answ.data);
-        /*if (answ.status !== 200) return chatWithGPT(messages);
-        if (!isJSON(extractAnswer(answ.result.choices[0].message.content)))
-            return chatWithGPT(messages);
-        if (
-            typeof extractAnswer(answ.result.choices[0].message.content) ===
-                "undefined" ||
-            typeof extractAnswer(answ.result.choices[0].message.content) ===
-                undefined ||
-            extractAnswer(answ.result.choices[0].message.content) === "undefined"
-        )
-            return chatWithGPT(messages);
-        
-        return answ.result.choices[0].message.content;*/
+        const v = new VertexAI();
+        const resp = await v.chatWithMessages(data_msg, {
+            model: "gemini-2.5-pro",
+            search: true
+        });
+        return resp[0].content.parts[resp[0].content.parts.length - 1].text;
     } catch (er) {
         console.error(er);
-        return chatWithGPT(messages);
+        return chatWithGPT(data_msg);
     }
 };
 
