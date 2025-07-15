@@ -22,12 +22,10 @@
         "fs": "^0.0.1-security",
         "jimp": "^1.6.0",
         "mongoose": "7.6.3",
-        "openai": "latest",
         "pino": "^8.20.0",
         "pm2": "latest",
         "qrcode-terminal": "^0.12.0",
         "rootpath": "latest",
-        "unlimited-ai": "latest",
         "yt-search": "latest"
     }
 }
