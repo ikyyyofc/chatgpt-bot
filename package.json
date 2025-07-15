@@ -6,7 +6,7 @@
     "main": "index.js",
     "scripts": {
         "start": "node index.js",
-        "pm2": "npx pm2 start index.js && npx pm2 save && npx pm2 logs"
+        "pm2": "git pull && npx pm2 start index.js && npx pm2 save && npx pm2 logs"
     },
     "keywords": ["wabot", "ikyy-bot", "whatsapp-bot"],
     "author": "IkyyOFC",
