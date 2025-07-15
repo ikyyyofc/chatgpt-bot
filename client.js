@@ -4,6 +4,7 @@ const axios = require("axios");
 const {
     default: makeWaSocket,
     useMultiFileAuthState,
+    fetchLatestBaileysVersion,
     PHONENUMBER_MCC
 } = baileys;
 const Pino = require("pino"),
