@@ -327,9 +327,10 @@ function extractAnswer(input, getAnalysis = false) {
 }
 
 global.chatWithGPT = async (data_msg, newMsg) => {
+  const messages = [...defaultSystemMessages, ...data_msg];
     try {
         const v = new VertexAI();
-        const resp = await v.chatWithMessages(data_msg, {
+        const resp = await v.chatWithMessages(messages, {
             model: "gemini-2.5-pro",
             search: true
         });
