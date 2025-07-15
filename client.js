@@ -345,14 +345,16 @@ const connect = async () => {
     console.log(colors.green("Connecting..."));
     const { state, saveCreds } = await useMultiFileAuthState("session");
     const config = JSON.parse(fs.readFileSync("./pairing.json", "utf-8"));
+    let { version, isLatest } = await fetchLatestBaileysVersion();
 
     const kyy = makeWaSocket({
+        version,
         printQRInTerminal:
             config.pairing && config.pairing.state && config.pairing.number
                 ? false
                 : true,
         auth: state,
-        browser: ["Chrome (Linux)", "", ""],
+        browser: ["linux", "Chrome", "20.0.04"],
         logger: Pino({ level: "silent" })
     });
     simpleBind(kyy);
