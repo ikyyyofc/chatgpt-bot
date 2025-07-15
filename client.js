@@ -188,7 +188,6 @@ class VertexAI {
         const contents = [];
 
         for (const message of messages) {
-
             let geminiRole;
             switch (message.role) {
                 case "system":
@@ -327,7 +326,7 @@ function extractAnswer(input, getAnalysis = false) {
 }
 
 global.chatWithGPT = async (data_msg, newMsg) => {
-  const messages = [...defaultSystemMessages, ...data_msg];
+    const messages = [...defaultSystemMessages, ...data_msg];
     try {
         const v = new VertexAI();
         const resp = await v.chatWithMessages(messages, {
@@ -429,17 +428,10 @@ const connect = async () => {
                             ).then(() => {
                                 chatWithGPT(chat.conversations, text).then(
                                     response => {
-                                        let answer = extractAnswer(response);
-
-                                        let think = extractAnswer(
-                                            response,
-                                            true
-                                        );
                                         kyy.reply(
                                             m.key.remoteJid,
-                                            jsonFormat(
-                                                `> ${think}\n\n${answer}`
-                                            ),
+
+                                            jsonFormat(response),
                                             m
                                         ).then(a => {
                                             updateChat(chat, {
