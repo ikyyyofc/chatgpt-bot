@@ -1,5 +1,5 @@
 require("./config");
-const baileys = require("@whiskeysockets/baileys");
+const baileys = require("baileys");
 const axios = require("axios");
 const {
     default: makeWaSocket,
