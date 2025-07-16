@@ -14,7 +14,7 @@
     "dependencies": {
         "@colors/colors": "^1.6.0",
         "@types/node": "^18.0.6",
-        "@whiskeysockets/baileys": "^6.7.16",
+        "baileys": "latest",
         "axios": "^1.7.2",
         "dotenv": "^16.3.1",
         "express": "^4.19.2",
