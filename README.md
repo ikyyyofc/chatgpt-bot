@@ -1,1 +1,0 @@
-# ikyy-bot
