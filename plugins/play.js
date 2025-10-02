@@ -1,69 +1,81 @@
-const yts = require("yt-search");
-async function yt_mp3(url) {
-    const BASE_URL = "https://api.fabdl.com";
+// plugins/play.js
+const yts = require('yt-search');
+const axios = require('axios');
 
-    try {
-        const response1 = await fetch(
-            `https://dl.ytmp3.ink/youtube/get?url=${url}`
-        );
-        if (!response1.ok) {
-            return yt_mp3(url);
-        }
-
-        const data1 = await response1.json();
-        if (data1.error) {
-            return yt_mp3(url);
-        }
-
-        const response2 = await fetch(data1.result.mp3_task_url);
-        if (!response2.ok) {
-            return yt_mp3(url);
-        }
-
-        const data2 = await response2.json();
-        if (!data2.result || !data2.result.download_url) {
-            return yt_mp3(url);
-        }
-
-        const result_url = BASE_URL + data2.result.download_url;
-
-        return {
-            status: true,
-            url: result_url
-        };
-    } catch (error) {
-        return yt_mp3(url);
-    }
-}
-module.exports = async (m, out, kyy, a) => {
-    kyy.wait(m.key.remoteJid, a.key);
-    let search = await yts(out.input);
-    let f = search.all.filter(v => !v.url.includes("@"));
-    let anu = f[0];
-    const res = await yt_mp3(anu.url);
-    if (!res.status) {
-        let chat = await getOrCreateChat(m.key.remoteJid);
-        await updateChat(chat, {
-            role: "assistant",
-            content: `{"type": "text", "input": "${out.input}", "output": "maaf gw gagal buat ngirim lagu yang lu mau, karena servernya bermasalah"}`
-        });
-        return kyy.reply(
-            m.key.remoteJid,
-            "maaf gw gagal buat ngirim lagu yang lu mau, karena servernya bermasalah"
-        );
-    }
+module.exports = {
+    description: 'Putar lagu dari YouTube',
     
-    
-    await kyy.sendAudio(
-        m.key.remoteJid,
-        {
-            audio: { url: res.url },
-            mimetype: "audio/mpeg",
-            fileName: `${anu.title}.mp3`
-        },
-        a,
-        anu.title,
-        anu.thumbnail,
-        anu.url
-    );
+    async execute({ sock, from, input, message, sender }) {
+        try {
+            if (!input) {
+                await sock.sendMessage(from, { text: 'kasih judul lagu dong...' });
+                return false;
+            }
+
+            console.log(`   🎵 Searching: ${input}`);
+            
+            // cari di youtube
+            let anu = await yts(input);
+            let f = anu.all.filter(v => !v.url.includes("@"));
+            
+            if (!f.length) {
+                await sock.sendMessage(from, { text: 'ga nemu lagu nya nih...' });
+                return false;
+            }
+
+            const video = f[0];
+            const url = video.url;
+            const thumbnail = video.thumbnail;
+            const title = video.title;
+            const ago = video.ago;
+            const author = video.author.name;
+
+            console.log(`   ✅ Found: ${title}`);
+
+            // kirim info
+            await sock.sendMessage(from, { 
+                text: `🎵 *${title}*\n👤 ${author}\n📅 ${ago}\n\n⬇️ Downloading...` 
+            });
+
+            // download pake API
+            console.log(`   ⬇️  Downloading from API...`);
+            const res = await axios.get(
+                `https://api.nekolabs.my.id/downloader/youtube/v1?url=${url}&format=mp3`
+            );
+
+            if (!res.data.status) {
+                await sock.sendMessage(from, { text: 'gagal download nih...' });
+                return false;
+            }
+
+            const downloadUrl = res.data.result.downloadUrl;
+
+            console.log(`   📤 Sending audio...`);
+
+            // kirim audio
+            await sock.sendMessage(from, {
+                audio: { url: downloadUrl },
+                mimetype: 'audio/mpeg',
+                fileName: `${title}.mp3`,
+                contextInfo: {
+                    externalAdReply: {
+                        title: title,
+                        body: `${author} | ${ago}`,
+                        thumbnailUrl: thumbnail,
+                        mediaType: 1,
+                        showAdAttribution: false,
+                        renderLargerThumbnail: true
+                    }
+                }
+            });
+
+            console.log(`   ✅ Audio sent to ${sender}`);
+            return true;
+
+        } catch (error) {
+            console.error(`   ❌ Play plugin error:`, error.message);
+            await sock.sendMessage(from, { text: 'error sih... coba lagi nanti' });
+            return false;
+        }
+    }
 };
