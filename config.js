@@ -39,5 +39,9 @@ Kalau bahas hal teknis, jelasin dengan bahasa sederhana dan santai.`,
     MAX_HISTORY: 100,
     
     // max file size buat diproses (bytes) - default 20MB
-    MAX_FILE_SIZE: 20 * 1024 * 1024
+    MAX_FILE_SIZE: 20 * 1024 * 1024,
+    
+    // auto offline config
+    AUTO_OFFLINE_MINUTES: 5, // offline setelah X menit ga ada aktivitas
+    ONLINE_DELAY_SECONDS: 3  // delay X detik sebelum online lagi
 };
