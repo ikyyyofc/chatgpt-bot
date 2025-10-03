@@ -122,6 +122,42 @@ const messageQueues = new Map();
 let botStartTime = null;
 let isReady = false;
 
+// tracking activity untuk auto offline
+let lastActivityTime = Date.now();
+let isOnline = true;
+let offlineTimer = null;
+
+// config auto offline (dalam milidetik)
+const AUTO_OFFLINE_DELAY = config.AUTO_OFFLINE_MINUTES * 60 * 1000;
+const ONLINE_DELAY = config.ONLINE_DELAY_SECONDS * 1000;
+
+// fungsi set presence
+async function setPresence(sock, status) {
+    try {
+        await sock.sendPresenceUpdate(status);
+        isOnline = (status === 'available');
+        console.log(colors.cyan(`📡 Presence set to: ${status}`));
+    } catch (e) {}
+}
+
+// fungsi reset offline timer
+function resetOfflineTimer(sock) {
+    lastActivityTime = Date.now();
+    
+    // clear timer lama
+    if (offlineTimer) {
+        clearTimeout(offlineTimer);
+    }
+    
+    // set timer baru
+    offlineTimer = setTimeout(() => {
+        if (isOnline) {
+            console.log(colors.yellow(`\n💤 No activity for ${AUTO_OFFLINE_DELAY / 60000} minutes, going offline...`));
+            setPresence(sock, 'unavailable');
+        }
+    }, AUTO_OFFLINE_DELAY);
+}
+
 const connect = async () => {
     loadPlugins();
     loadSessions();
@@ -164,6 +200,12 @@ const connect = async () => {
             botStartTime = Date.now();
             console.log(colors.yellow("⏳ Waiting 1 minute before processing messages..."));
             
+            // set online
+            await setPresence(sock, 'available');
+            
+            // start offline timer
+            resetOfflineTimer(sock);
+            
             // tunggu 1 menit sebelum mulai proses pesan
             setTimeout(() => {
                 isReady = true;
@@ -177,6 +219,14 @@ const connect = async () => {
                 console.log(colors.yellow("Connection closed, reconnecting..."));
                 isReady = false;
                 botStartTime = null;
+                isOnline = false;
+                
+                // clear offline timer
+                if (offlineTimer) {
+                    clearTimeout(offlineTimer);
+                    offlineTimer = null;
+                }
+                
                 connect();
             } else {
                 console.log(colors.red("Logged out!"));
@@ -281,6 +331,23 @@ const connect = async () => {
         
         if (!text && !hasMedia) return;
 
+        // mark as read langsung biar kesan online
+        await sock.readMessages([m.key]);
+
+        // kalo bot offline, set online dulu dengan delay
+        if (!isOnline) {
+            console.log(colors.yellow(`\n🌐 Bot is offline, going online for ${senderNumber}...`));
+            
+            // delay sebelum online
+            await new Promise(resolve => setTimeout(resolve, ONLINE_DELAY));
+            
+            await setPresence(sock, 'available');
+            console.log(colors.green(`✅ Bot is now online`));
+        }
+
+        // reset offline timer setiap ada aktivitas
+        resetOfflineTimer(sock);
+
         // tunggu bot ready kalo bukan command (chat biasa)
         if (!isReady) {
             console.log(colors.gray(`⏳ Waiting for bot to be ready before processing message from ${senderNumber}...`));
@@ -317,9 +384,6 @@ const connect = async () => {
         queue.push(m);
 
         try {
-            // mark as read
-            await sock.readMessages([m.key]);
-
             // typing indicator terus menerus sampe selesai
             let typingInterval = setInterval(() => {
                 if (!requestController.cancelled) {
