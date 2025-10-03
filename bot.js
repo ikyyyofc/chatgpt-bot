@@ -91,27 +91,56 @@ function saveSessions() {
 // parse response AI
 function parseAIResponse(text) {
     try {
+        // coba parse langsung kalo udah JSON
+        let parsed = null;
+        
+        // coba extract JSON dari response
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            
-            if (parsed.type && parsed.output) {
-                return {
-                    isPlugin: true,
-                    type: parsed.type,
-                    input: parsed.input || "",
-                    output: parsed.output,
-                    rawResponse: text
-                };
-            }
+            parsed = JSON.parse(jsonMatch[0]);
+        } else {
+            // kalo ga ada JSON sama sekali, parse dari text
+            parsed = JSON.parse(text);
         }
-    } catch (e) {}
-    
-    return {
-        isPlugin: false,
-        output: text,
-        rawResponse: text
-    };
+        
+        // validasi struktur wajib
+        if (!parsed.type || !parsed.output) {
+            console.log(colors.red("   ⚠️  Invalid JSON structure, missing required fields"));
+            
+            // fallback: buatin JSON struktur sendiri
+            return {
+                isPlugin: false,
+                type: "chat",
+                input: "",
+                output: text,
+                rawResponse: text
+            };
+        }
+        
+        // cek apakah ini plugin atau chat biasa
+        const isPlugin = parsed.type !== "chat" && plugins.has(parsed.type);
+        
+        return {
+            isPlugin: isPlugin,
+            type: parsed.type,
+            input: parsed.input || "",
+            output: parsed.output,
+            rawResponse: text
+        };
+        
+    } catch (e) {
+        console.log(colors.red("   ⚠️  Failed to parse JSON:", e.message));
+        console.log(colors.yellow("   📝 Raw response:", text));
+        
+        // fallback: treat as chat biasa
+        return {
+            isPlugin: false,
+            type: "chat",
+            input: "",
+            output: text,
+            rawResponse: text
+        };
+    }
 }
 
 // tracking request yang lagi diproses per user
@@ -581,9 +610,34 @@ const connect = async () => {
             ).join("\n");
 
             const enhancedSystemPrompt = config.SYSTEM_PROMPT + 
-                (plugins.size > 0 ? `\n\nKamu punya akses ke plugin berikut:\n${pluginInfo}\n\n` +
-                "Jika user minta sesuatu yang bisa dipake plugin, respond dengan JSON format:\n" +
-                '{"type": "nama_plugin", "input": "parameter_yang_dibutuhin", "output": "pesan_ke_user"}' : "");
+                `\n\n=== ATURAN WAJIB RESPONSE ===
+SETIAP response KAMU HARUS dalam format JSON yang valid. TIDAK ADA PENGECUALIAN!
+
+Format JSON wajib:
+{"type": "...", "input": "...", "output": "..."}
+
+Penjelasan field:
+- "type": nama plugin yang akan dieksekusi, atau "chat" jika tidak butuh plugin
+- "input": parameter/data yang dibutuhkan plugin (kosongkan string jika type="chat")
+- "output": pesan yang akan diterima user, harus natural dan ramah
+
+ATURAN KETAT:
+1. WAJIB respond dengan JSON valid di setiap response
+2. Jika user meminta sesuatu yang bisa dilakukan plugin, gunakan type sesuai nama plugin
+3. Jika chat biasa tanpa butuh plugin, gunakan type="chat"
+4. Field "output" adalah komunikasi ke user, buat natural dan engaging
+5. JANGAN PERNAH hanya berjanji atau bilang "akan saya lakukan" - LANGSUNG set type plugin yang sesuai
+6. Plugin akan OTOMATIS dieksekusi setelah kamu respond, jadi pastikan type sudah benar
+7. RESPOND LANGSUNG dengan JSON, tanpa markdown code block atau wrapper apapun
+
+Plugin yang tersedia:
+${plugins.size > 0 ? pluginInfo : 'Tidak ada plugin tersedia'}
+
+PENTING:
+- Setiap kali user request action yang bisa dilakukan plugin, PASTI gunakan type plugin tersebut
+- Jangan cuma acknowledge request di output, tapi pastikan type sudah set dengan benar
+- Plugin akan auto-execute jika type sesuai dengan nama plugin yang ada
+- Untuk chat biasa (greeting, tanya jawab umum, dll), gunakan type="chat"`;
 
             const messagesWithSystem = [
                 {
