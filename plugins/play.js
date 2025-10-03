@@ -35,7 +35,7 @@ module.exports = {
             // kirim info
             await sock.sendMessage(from, { 
                 text: `🎵 *${title}*\n👤 ${author}\n📅 ${ago}\n\n⬇️ Downloading...` 
-            });
+            }, { quoted: message });
 
             // download pake API
             console.log(`   ⬇️  Downloading from API...`);
@@ -67,7 +67,7 @@ module.exports = {
                         renderLargerThumbnail: true
                     }
                 }
-            });
+            }, { quoted: message });
 
             console.log(`   ✅ Audio sent to ${sender}`);
             return true;
