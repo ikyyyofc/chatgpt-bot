@@ -13,10 +13,13 @@ module.exports = {
 
             console.log(`   🎨 Generating image with prompt: ${input}`);
 
-            // kirim status
-            const statusMsg = await sock.sendMessage(from, { 
-                text: '🎨 Generating image...\n⏳ Tunggu bentar ya... (0/20)' 
-            }, { quoted: message });
+            // react processing
+            await sock.sendMessage(from, {
+                react: {
+                    text: '🎨',
+                    key: message.key
+                }
+            });
 
             console.log(`   🚀 Calling AI API with retry...`);
 
@@ -28,14 +31,6 @@ module.exports = {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
                     console.log(`   🔄 Attempt ${attempt}/${maxRetries}...`);
-
-                    // update status setiap 3 attempt
-                    if (attempt % 3 === 0 || attempt === 1) {
-                        await sock.sendMessage(from, {
-                            text: `🎨 Generating image...\n⏳ Tunggu bentar ya... (${attempt}/${maxRetries})`,
-                            edit: statusMsg.key
-                        }).catch(() => {});
-                    }
 
                     // generate gambar pake API
                     const response = await axios.get(
