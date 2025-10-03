@@ -522,6 +522,14 @@ const connect = async () => {
             if (parsed.isPlugin && plugins.has(parsed.type)) {
                 console.log(colors.blue(`   🔌 Executing plugin: ${parsed.type}`));
                 
+                // react hourglass pas lagi proses plugin
+                await sock.sendMessage(from, {
+                    react: {
+                        text: '⏳',
+                        key: m.key
+                    }
+                });
+                
                 try {
                     const plugin = plugins.get(parsed.type);
                     await plugin.execute({
@@ -533,9 +541,26 @@ const connect = async () => {
                         fileBuffer
                     });
 
+                    // react success
+                    await sock.sendMessage(from, {
+                        react: {
+                            text: '✅',
+                            key: m.key
+                        }
+                    });
+
                     console.log(colors.green(`   ✅ Plugin executed successfully`));
                 } catch (pluginError) {
                     console.error(colors.red(`   ❌ Plugin error:`), pluginError.message);
+                    
+                    // react error
+                    await sock.sendMessage(from, {
+                        react: {
+                            text: '❌',
+                            key: m.key
+                        }
+                    });
+                    
                     await sock.sendMessage(from, { 
                         text: "waduh plugin error nih... tapi gapapa lanjut aja" 
                     });
