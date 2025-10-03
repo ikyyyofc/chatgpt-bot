@@ -118,6 +118,10 @@ function parseAIResponse(text) {
 const processingRequests = new Map();
 const messageQueues = new Map();
 
+// tracking bot startup time
+let botStartTime = null;
+let isReady = false;
+
 const connect = async () => {
     loadPlugins();
     loadSessions();
@@ -155,12 +159,24 @@ const connect = async () => {
         
         if (connection === "open") {
             console.log(colors.green("Successfully Connected With ") + colors.cyan(sock.user.name));
+            
+            // set bot start time
+            botStartTime = Date.now();
+            console.log(colors.yellow("⏳ Waiting 1 minute before processing messages..."));
+            
+            // tunggu 1 menit sebelum mulai proses pesan
+            setTimeout(() => {
+                isReady = true;
+                console.log(colors.green("✅ Bot is ready to process messages!\n"));
+            }, 60000); // 60 detik
         }
         
         if (connection === "close") {
             const reason = lastDisconnect?.error?.output?.statusCode;
             if (reason !== DisconnectReason.loggedOut) {
                 console.log(colors.yellow("Connection closed, reconnecting..."));
+                isReady = false;
+                botStartTime = null;
                 connect();
             } else {
                 console.log(colors.red("Logged out!"));
@@ -200,6 +216,13 @@ const connect = async () => {
 
         // handle command /reset
         if (text.trim() === "/reset") {
+            // skip kalo pesan lama atau bot belum ready
+            const messageTimestamp = m.messageTimestamp * 1000;
+            if (!isReady || messageTimestamp < botStartTime) {
+                console.log(colors.gray(`⏭️  Skipping old /reset command from ${senderNumber}`));
+                return;
+            }
+            
             console.log(colors.yellow(`\n🔄 /reset from ${senderNumber}`));
             userSessions.delete(from);
             saveSessions();
@@ -209,6 +232,13 @@ const connect = async () => {
 
         // handle command /update (owner only)
         if (text.trim() === "/update") {
+            // skip kalo pesan lama atau bot belum ready
+            const messageTimestamp = m.messageTimestamp * 1000;
+            if (!isReady || messageTimestamp < botStartTime) {
+                console.log(colors.gray(`⏭️  Skipping old /update command from ${senderNumber}`));
+                return;
+            }
+            
             if (senderNumber !== config.OWNER_NUMBER) {
                 return; // skip, biar AI yang respon
             }
@@ -250,6 +280,18 @@ const connect = async () => {
                         m.message?.documentMessage || m.message?.audioMessage;
         
         if (!text && !hasMedia) return;
+
+        // tunggu bot ready kalo bukan command (chat biasa)
+        if (!isReady) {
+            console.log(colors.gray(`⏳ Waiting for bot to be ready before processing message from ${senderNumber}...`));
+            
+            // tunggu sampe ready
+            while (!isReady) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            console.log(colors.green(`✅ Bot ready, processing message from ${senderNumber}`));
+        }
 
         // kalo lagi ada request diproses, cancel request sebelumnya
         if (processingRequests.has(from)) {
