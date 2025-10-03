@@ -2,12 +2,12 @@
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
 
 module.exports = {
-    description: 'Bikin sticker dari gambar atau video',
+    description: 'Bikin sticker dari gambar',
     
     async execute({ sock, from, input, message, sender, fileBuffer }) {
         try {
             if (!fileBuffer) {
-                await sock.sendMessage(from, { text: 'kirim atau quote foto/video yang mau dijadiin sticker!' });
+                await sock.sendMessage(from, { text: 'kirim atau quote foto yang mau dijadiin sticker!' });
                 return false;
             }
 
