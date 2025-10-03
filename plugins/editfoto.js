@@ -189,10 +189,13 @@ module.exports = {
             // deteksi ekstensi dari mimetype
             const randomFileName = `${uuidv4()}.jpg`;
 
-            // kirim status
-            const statusMsg = await sock.sendMessage(from, { 
-                text: '🎨 Editing image...\n⏳ Tunggu bentar ya, lagi diproses...' 
-            }, { quoted: message });
+            // react processing
+            await sock.sendMessage(from, {
+                react: {
+                    text: '🎨',
+                    key: message.key
+                }
+            });
 
             console.log(`   🚀 Processing with AI...`);
 
