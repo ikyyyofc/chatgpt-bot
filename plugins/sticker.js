@@ -2,7 +2,7 @@
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
 
 module.exports = {
-    description: 'Bikin sticker dari gambar',
+    description: 'Bikin sticker dari gambar atau video',
     
     async execute({ sock, from, input, message, sender, fileBuffer }) {
         try {
