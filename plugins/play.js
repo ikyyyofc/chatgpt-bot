@@ -32,10 +32,13 @@ module.exports = {
 
             console.log(`   ✅ Found: ${title}`);
 
-            // kirim info
-            await sock.sendMessage(from, { 
-                text: `🎵 *${title}*\n👤 ${author}\n📅 ${ago}\n\n⬇️ Downloading...` 
-            }, { quoted: message });
+            // react download
+            await sock.sendMessage(from, {
+                react: {
+                    text: '⬇️',
+                    key: message.key
+                }
+            });
 
             // download pake API
             console.log(`   ⬇️  Downloading from API...`);
