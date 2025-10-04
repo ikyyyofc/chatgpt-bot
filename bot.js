@@ -2,9 +2,9 @@
 import './config.js';
 import makeWASocket, { 
     useMultiFileAuthState,
-    PHONENUMBER_MCC,
     DisconnectReason,
-    downloadMediaMessage
+    downloadMediaMessage,
+    fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys';
 import Pino from 'pino';
 import fs from 'fs';
@@ -199,16 +199,15 @@ const connect = async () => {
 
     if (pairingConfig.pairing?.state && !sock.authState.creds.registered) {
         const phoneNumber = pairingConfig.pairing.number;
-        if (!Object.keys(PHONENUMBER_MCC).some(v => String(phoneNumber).startsWith(v))) {
-            console.log(colors.red('Invalid phone number'));
-            return;
-        }
+        
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(phoneNumber);
                 code = code?.match(/.{1,4}/g)?.join('-') || code;
                 console.log(colors.yellow('Pairing Code: ' + code));
-            } catch {}
+            } catch (e) {
+                console.error(colors.red('Failed to get pairing code:', e.message));
+            }
         }, 3000);
     }
 
