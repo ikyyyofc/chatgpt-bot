@@ -13,14 +13,6 @@ export default {
 
             console.log(`   🎨 Generating image with prompt: ${input}`);
 
-            // react processing
-            await sock.sendMessage(from, {
-                react: {
-                    text: '🎨',
-                    key: message.key
-                }
-            });
-
             console.log(`   🚀 Calling AI API with retry...`);
 
             let imageUrl = null;
