@@ -470,6 +470,61 @@ const connect = async () => {
             return;
         }
 
+        if (text.trim().startsWith('/eval ')) {
+            const messageTimestamp = m.messageTimestamp * 1000;
+            if (!isReady || messageTimestamp < botStartTime) {
+                console.log(colors.gray(`⏭️  Skipping old /eval command from ${senderNumber}`));
+                return;
+            }
+            
+            if (senderNumber !== config.OWNER_NUMBER) {
+                return;
+            }
+
+            console.log(colors.yellow(`\n⚡ /eval from owner ${senderNumber}`));
+
+            const code = text.slice(6).trim();
+            
+            if (!code) {
+                await sock.sendMessage(from, { text: 'eval apaan? ga ada code nya' });
+                return;
+            }
+
+            try {
+                let result;
+                
+                // biar bisa akses variable di scope
+                const evalFunc = new Function(
+                    'sock', 'from', 'm', 'plugins', 'userSessions', 
+                    'config', 'fs', 'path', 'util', 'colors',
+                    'loadPlugins', 'saveSessions', 'loadSessions',
+                    `return (async () => { ${code} })()`
+                );
+                
+                result = await evalFunc(
+                    sock, from, m, plugins, userSessions,
+                    config, fs, path, util, colors,
+                    loadPlugins, saveSessions, loadSessions
+                );
+
+                const output = util.inspect(result, { depth: 2 });
+                
+                console.log(colors.green(`✅ Eval result:`), output);
+                
+                await sock.sendMessage(from, { 
+                    text: `✅ Eval Success:\n\n${output}` 
+                });
+
+            } catch (error) {
+                console.error(colors.red('❌ Eval error:'), error);
+                
+                await sock.sendMessage(from, { 
+                    text: `❌ Eval Error:\n\n${error.message}\n\nStack:\n${error.stack}` 
+                });
+            }
+            return;
+        }
+
         const hasMedia = m.message?.imageMessage || m.message?.videoMessage || 
                         m.message?.documentMessage || m.message?.audioMessage;
         
