@@ -188,14 +188,6 @@ export default {
 
             const randomFileName = `${uuidv4()}.jpg`;
 
-            // react processing
-            await sock.sendMessage(from, {
-                react: {
-                    text: '🎨',
-                    key: message.key
-                }
-            });
-
             console.log(`   🚀 Processing with AI...`);
 
             const result = await notegpt.create(fileBuffer, randomFileName, input);
