@@ -1,5 +1,5 @@
-const axios = require("axios");
-const { fromBuffer } = require("file-type");
+import axios from "axios";
+import { fileTypeFromBuffer } from "file-type";
 
 const API_URL = "https://firebasevertexai.googleapis.com/v1beta";
 const MODEL_URL =
@@ -28,7 +28,7 @@ async function chat(messages = [], fileBuffer = null) {
     }));
 
     if (fileBuffer) {
-        const type = await fromBuffer(fileBuffer);
+        const type = await fileTypeFromBuffer(fileBuffer);
         if (!type) throw new Error("Unable to detect file type");
 
         const inlinePart = {
@@ -75,7 +75,7 @@ async function chat(messages = [], fileBuffer = null) {
                     threshold: "BLOCK_NONE"
                 }
             ],
-            tools: [{ googleSearch: {} }] // search selalu aktif
+            tools: [{ googleSearch: {} }]
         },
         { headers: HEADERS }
     );
@@ -84,4 +84,4 @@ async function chat(messages = [], fileBuffer = null) {
     return r.data.candidates[0].content.parts.map(o => o.text).join("");
 }
 
-module.exports = chat;
+export default chat;
