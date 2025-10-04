@@ -324,12 +324,20 @@ const connect = async () => {
                     for (const p of participants) {
                         try {
                             let jid = p.id;
-                            if (jid.includes('@lid')) {
-                                jid = await sock.signalRepository.lidMapping.getPNForLID(jid);
+                            if (jid && jid.includes('@lid')) {
+                                const converted = await sock.signalRepository?.lidMapping?.getPNForLID(jid);
+                                if (converted) {
+                                    jid = converted;
+                                }
                             }
-                            participantJids.push(jid);
+                            if (jid) {
+                                participantJids.push(jid);
+                            }
                         } catch (e) {
-                            console.log(colors.red(`   Error converting participant: ${e.message}`));
+                            // kalo gagal convert, skip aja
+                            if (p.id && !p.id.includes('@lid')) {
+                                participantJids.push(p.id);
+                            }
                         }
                     }
                     
@@ -363,8 +371,11 @@ const connect = async () => {
                 for (const jid of mentionedJid) {
                     try {
                         let convertedJid = jid;
-                        if (jid.includes('@lid')) {
-                            convertedJid = await sock.signalRepository.lidMapping.getPNForLID(jid);
+                        if (jid && jid.includes('@lid')) {
+                            const converted = await sock.signalRepository?.lidMapping?.getPNForLID(jid);
+                            if (converted) {
+                                convertedJid = converted;
+                            }
                         }
                         convertedMentions.push(convertedJid);
                     } catch (e) {
@@ -411,16 +422,24 @@ const connect = async () => {
                         
                         const mentionNumber = jid.split('@')[0];
                         
-                        // cari participant
-                        const participant = participants.find(p => {
+                        // cari participant by jid
+                        let participant = null;
+                        for (const p of participants) {
                             let pJid = p.id;
                             try {
-                                if (pJid.includes('@lid')) {
-                                    pJid = sock.signalRepository.lidMapping.getPNForLID(pJid);
+                                if (pJid && pJid.includes('@lid')) {
+                                    const converted = await sock.signalRepository?.lidMapping?.getPNForLID(pJid);
+                                    if (converted) {
+                                        pJid = converted;
+                                    }
                                 }
                             } catch (e) {}
-                            return pJid === jid;
-                        });
+                            
+                            if (pJid === jid) {
+                                participant = p;
+                                break;
+                            }
+                        }
                         
                         let name = mentionNumber;
                         try {
