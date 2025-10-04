@@ -542,89 +542,17 @@ const connect = async () => {
 
         // === FILTER GRUP ===
         if (isGroup) {
-            try {
-                const groupMetadata = await sock.groupMetadata(from);
-                const groupParticipants = groupMetadata.participants || [];
-                
-                if (!Array.isArray(groupParticipants)) {
-                    console.log(colors.red(`   ❌ Participants is not an array`));
-                    return;
-                }
-                
-                console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
-                console.log(colors.gray(`   Total participants: ${groupParticipants.length}`));
-                console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
-                
-                // debug: print beberapa participant untuk liat formatnya
-                if (groupParticipants.length > 0) {
-                    console.log(colors.gray(`   Sample participant IDs:`));
-                    groupParticipants.slice(0, 3).forEach(p => {
-                        console.log(colors.gray(`     - ${p.id}`));
-                    });
-                }
-                
-                // === CEK OWNER PAKE HELPER ===
-                const ownerInGroup = await isOwnerInGroup(sock, groupParticipants);
-                
-                if (!ownerInGroup) {
-                    console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
-                    setTimeout(() => {
-                        sock.groupLeave(from).catch(() => {});
-                    }, 3000);
-                    return;
-                }
-                
-                console.log(colors.green(`   ✅ Owner found in group!`));
-                
-                // === CEK BOT MENTION ===
-                const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-                const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-                const botNumber = sock.user.id.split(':')[0];
-                
-                // coba ambil bot LID dari sock.user (kalo ada)
-                if (!botLidCache && sock.user.lid) {
-                    botLidCache = sock.user.lid;
-                    console.log(colors.green(`   🔑 Bot LID cached: ${botLidCache}`));
-                }
-                
-                console.log(colors.gray(`   Bot JID: ${botJid}`));
-                console.log(colors.gray(`   Bot LID: ${botLidCache || 'not found yet'}`));
-                console.log(colors.gray(`   Bot Number: ${botNumber}`));
-                console.log(colors.gray(`   Mentioned JIDs: ${mentionedJid.join(', ')}`));
-                console.log(colors.gray(`   Text contains @${botNumber}: ${text.includes(`@${botNumber}`)}`));
-                
-                if (!isBotMentioned(mentionedJid, text, botJid, botNumber, botLidCache)) {
-                    console.log(colors.yellow(`   ⚠️  Bot not mentioned, ignoring message`));
-                    return;
-                }
-                
-                console.log(colors.cyan(`\n👥 Group message from ${senderNumber} in ${groupMetadata.subject}`));
-                console.log(colors.green(`   ✅ Bot mentioned, processing...`));
-                
-                // === BERSIHKAN TEXT PAKE HELPER ===
-                cleanedTextForGroup = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, groupParticipants);
-                
-                console.log(colors.white(`   💬 Cleaned text: "${cleanedTextForGroup}"`));
-                
-                if (!cleanedTextForGroup.trim()) {
-                    console.log(colors.yellow(`   ⚠️  Text empty after cleaning, ignoring`));
-                    return;
-                }
-                
-            } catch (error) {
-                console.error(colors.red('Error checking group:'), error.message);
-                console.error(colors.red('Error stack:'), error.stack);
-                return;
-            }
+            const cleanedText = await handleGroupMessage(sock, m, text);
+            if (!cleanedText) return; // kalo null, berarti ga perlu diproses
+            
+            // override text dengan yang udah clean
+            text = cleanedText;
         }
 
         const hasMedia = m.message?.imageMessage || m.message?.videoMessage || 
                         m.message?.documentMessage || m.message?.audioMessage;
         
         if (!text && !hasMedia) return;
-        
-        // variable untuk menyimpan data grup (kalo dari grup)
-        let cleanedTextForGroup = text; // simpan text yang udah di-clean
 
         // delay sebelum baca pesan (1-3 detik)
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
@@ -725,11 +653,8 @@ const connect = async () => {
                     ''
                 );
 
-                // kalo dari grup, udah dibersihkan di atas
-                if (isGroup) {
-                    msgText = cleanedTextForGroup;
-                }
-
+                // kalo dari grup, ga usah apa-apa (udah di-handle di handleGroupMessage)
+                // kalo private chat, pake msgText langsung
                 let userMessage = msgText;
 
                 const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
