@@ -1,8 +1,8 @@
 // plugins/play.js
-const yts = require('yt-search');
-const axios = require('axios');
+import yts from 'yt-search';
+import axios from 'axios';
 
-module.exports = {
+export default {
     description: 'Putar lagu dari YouTube',
     
     async execute({ sock, from, input, message, sender }) {
