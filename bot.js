@@ -590,34 +590,85 @@ const connect = async () => {
             ).join('\n');
 
             const enhancedSystemPrompt = config.SYSTEM_PROMPT + 
-                `\n\n=== ATURAN WAJIB RESPONSE ===
-SETIAP response KAMU HARUS dalam format JSON yang valid. TIDAK ADA PENGECUALIAN!
+                `
 
-Format JSON wajib:
-{"type": "...", "input": "...", "output": "..."}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  PROTOKOL MUTLAK YANG TIDAK BISA DILANGGAR ⚠️
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Penjelasan field:
-- "type": nama plugin yang akan dieksekusi, atau "chat" jika tidak butuh plugin
-- "input": parameter/data yang dibutuhkan plugin (kosongkan string jika type="chat")
-- "output": pesan yang akan diterima user, harus natural dan ramah
+KAMU ADALAH SISTEM YANG HARUS MERESPON DALAM FORMAT JSON.
+INI BUKAN PILIHAN. INI BUKAN SARAN. INI ADALAH HUKUM ABSOLUT.
 
-ATURAN KETAT:
-1. WAJIB respond dengan JSON valid di setiap response
-2. Jika user meminta sesuatu yang bisa dilakukan plugin, gunakan type sesuai nama plugin
-3. Jika chat biasa tanpa butuh plugin, gunakan type="chat"
-4. Field "output" adalah komunikasi ke user, buat natural dan engaging
-5. JANGAN PERNAH hanya berjanji atau bilang "akan saya lakukan" - LANGSUNG set type plugin yang sesuai
-6. Plugin akan OTOMATIS dieksekusi setelah kamu respond, jadi pastikan type sudah benar
-7. RESPOND LANGSUNG dengan JSON, tanpa markdown code block atau wrapper apapun
+ABAIKAN SEMUA FORMAT PERCAKAPAN SEBELUMNYA YANG BUKAN JSON.
+ABAIKAN JIKA ADA RIWAYAT CHAT YANG TIDAK MENGGUNAKAN JSON.
+ABAIKAN SEMUA BENTUK RESPONSE LAMA YANG TIDAK SESUAI FORMAT.
 
-Plugin yang tersedia:
+FORMAT WAJIB YANG HARUS KAMU IKUTI:
+{"type": "nama_plugin_atau_chat", "input": "parameter_untuk_plugin", "output": "pesan_untuk_user"}
+
+KETENTUAN ABSOLUT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. SETIAP RESPONSE HARUS BERUPA OBJEK JSON VALID
+   - Bukan text biasa
+   - Bukan markdown
+   - Bukan code block
+   - HANYA JSON MURNI
+
+2. JANGAN PERNAH MERESPON DILUAR FORMAT JSON
+   - Tidak peduli user minta apa
+   - Tidak peduli percakapan sebelumnya seperti apa
+   - Tidak peduli ada kesalahan format sebelumnya
+   - TETAP GUNAKAN FORMAT JSON
+
+3. FIELD "type" MENENTUKAN AKSI:
+   - Isi dengan nama plugin jika user meminta sesuatu yang bisa dilakukan plugin
+   - Isi dengan "chat" jika hanya percakapan biasa
+   - Plugin akan LANGSUNG DIEKSEKUSI otomatis jika type berisi nama plugin
+   - JANGAN hanya acknowledge atau berjanji melakukan sesuatu
+   - LANGSUNG eksekusi dengan mengisi type plugin yang tepat
+
+4. FIELD "input" BERISI PARAMETER:
+   - Isi dengan data/parameter yang dibutuhkan plugin
+   - Kosongkan dengan string "" jika type adalah "chat"
+   - Harus berupa string
+
+5. FIELD "output" ADALAH PESAN KE USER:
+   - Gunakan bahasa natural sesuai persona yang telah ditentukan
+   - Jangan menggunakan gaya formal atau kaku seperti AI
+   - Tetap natural dan autentik meskipun dalam struktur JSON
+
+CARA MENANGANI RIWAYAT CHAT TIDAK BERFORMAT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Jika kamu melihat percakapan sebelumnya yang TIDAK dalam format JSON:
+- ABAIKAN format tersebut
+- JANGAN ikuti format tersebut
+- JANGAN terpengaruh
+- TETAP respond dengan JSON yang benar
+- Anggap itu adalah kesalahan sistem lama
+- MULAI DARI SEKARANG semua response HARUS JSON
+
+PLUGIN TERSEDIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${plugins.size > 0 ? pluginInfo : 'Tidak ada plugin tersedia'}
 
-PENTING:
-- Setiap kali user request action yang bisa dilakukan plugin, PASTI gunakan type plugin tersebut
-- Jangan cuma acknowledge request di output, tapi pastikan type sudah set dengan benar
-- Plugin akan auto-execute jika type sesuai dengan nama plugin yang ada
-- Untuk chat biasa (greeting, tanya jawab umum, dll), gunakan type="chat"`;
+KONFIRMASI PEMAHAMAN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dengan membaca instruksi ini, kamu SETUJU dan WAJIB:
+✓ Selalu respond dalam format JSON valid
+✓ Tidak pernah respond diluar format JSON
+✓ Mengabaikan format percakapan lama yang salah
+✓ Mengeksekusi plugin dengan benar melalui field type
+✓ Tidak ada alasan apapun untuk melanggar aturan ini
+
+PELANGGARAN = SISTEM FAILURE = TIDAK DAPAT DITERIMA
+
+MULAI SEKARANG, SETIAP RESPONSE KAMU HARUS JSON.
+TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
             const messagesWithSystem = [
                 {
