@@ -238,8 +238,27 @@ async function isOwnerInGroup(sock, participants) {
 }
 
 // === HELPER: Cek apakah bot di-mention ===
-function isBotMentioned(mentionedJid, text, botJid, botNumber) {
-    return mentionedJid.includes(botJid) || text.includes(`@${botNumber}`);
+function isBotMentioned(mentionedJid, text, botJid, botNumber, botLid = null) {
+    // cek mention pake JID
+    if (mentionedJid.includes(botJid)) return true;
+    
+    // cek mention pake LID (kalo ada)
+    if (botLid) {
+        // strip device number dari bot LID (contoh: 90392536080585:2@lid -> 90392536080585@lid)
+        const botLidWithoutDevice = botLid.replace(/:\d+@/, '@');
+        
+        for (const jid of mentionedJid) {
+            // strip device number dari mentioned jid juga
+            const mentionedWithoutDevice = jid.replace(/:\d+@/, '@');
+            
+            if (mentionedWithoutDevice === botLidWithoutDevice) return true;
+        }
+    }
+    
+    // cek text contain @nomor
+    if (text.includes(`@${botNumber}`)) return true;
+    
+    return false;
 }
 
 // === HELPER: Bersihkan text dari mention dan replace dengan nama ===
@@ -269,6 +288,9 @@ function cleanTextFromMentions(text, mentionedJid, botJid, botNumber, participan
     
     return text;
 }
+
+// tracking bot LID (diambil pas bot pertama send message di grup)
+let botLidCache = null;
 
 const connect = async () => {
     await loadPlugins();
@@ -533,12 +555,19 @@ const connect = async () => {
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
+                // coba ambil bot LID dari sock.user (kalo ada)
+                if (!botLidCache && sock.user.lid) {
+                    botLidCache = sock.user.lid;
+                    console.log(colors.green(`   🔑 Bot LID cached: ${botLidCache}`));
+                }
+                
                 console.log(colors.gray(`   Bot JID: ${botJid}`));
+                console.log(colors.gray(`   Bot LID: ${botLidCache || 'not found yet'}`));
                 console.log(colors.gray(`   Bot Number: ${botNumber}`));
                 console.log(colors.gray(`   Mentioned JIDs: ${mentionedJid.join(', ')}`));
                 console.log(colors.gray(`   Text contains @${botNumber}: ${text.includes(`@${botNumber}`)}`));
                 
-                if (!isBotMentioned(mentionedJid, text, botJid, botNumber)) {
+                if (!isBotMentioned(mentionedJid, text, botJid, botNumber, botLidCache)) {
                     console.log(colors.yellow(`   ⚠️  Bot not mentioned, ignoring message`));
                     return;
                 }
