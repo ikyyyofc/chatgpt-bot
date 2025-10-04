@@ -43,7 +43,7 @@ Kalau bahas hal teknis, jelasin dengan bahasa sederhana dan santai.`,
     
     // auto offline config
     AUTO_OFFLINE_MINUTES: 5, // offline setelah X menit ga ada aktivitas
-    ONLINE_DELAY_SECONDS: 3  // delay X detik sebelum online lagi
+    ONLINE_DELAY_SECONDS: 3,  // delay X detik sebelum online lagi
     
     // human-like delays (dalam milidetik)
     DELAY_BEFORE_READ: [1000, 3000], // delay 1-3 detik sebelum baca pesan
