@@ -157,7 +157,19 @@ let offlineTimer = null;
 const AUTO_OFFLINE_DELAY = config.AUTO_OFFLINE_MINUTES * 60 * 1000;
 const ONLINE_DELAY = config.ONLINE_DELAY_SECONDS * 1000;
 
-// fungsi set presence
+// fungsi random delay
+function randomDelay(min, max) {
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+// fungsi hitung typing time berdasarkan panjang text
+function calculateTypingTime(text) {
+    const chars = text.length;
+    const timeMs = (chars / config.TYPING_SPEED) * 1000;
+    // min 2 detik, max 10 detik
+    return Math.min(Math.max(timeMs, 2000), 10000);
+}
 async function setPresence(sock, status) {
     try {
         await sock.sendPresenceUpdate(status);
@@ -339,6 +351,11 @@ const connect = async () => {
                         m.message?.documentMessage || m.message?.audioMessage;
         
         if (!text && !hasMedia) return;
+
+        // delay sebelum baca pesan (1-3 detik) - biar keliatan natural
+        const [minRead, maxRead] = config.DELAY_BEFORE_READ;
+        await randomDelay(minRead, maxRead);
+        console.log(colors.gray(`   ⏱️  Waited ${Math.floor((Date.now() - m.messageTimestamp * 1000) / 1000)}s before reading`));
 
         await sock.readMessages([m.key]);
 
