@@ -543,38 +543,38 @@ const connect = async () => {
         // === FILTER GRUP ===
         if (isGroup) {
             try {
-                const groupMetadata = await sock.groupMetadata(from);
+                groupMetadata = await sock.groupMetadata(from);
                 
                 console.log(colors.gray(`   DEBUG: groupMetadata type: ${typeof groupMetadata}`));
                 console.log(colors.gray(`   DEBUG: groupMetadata.participants type: ${typeof groupMetadata.participants}`));
                 console.log(colors.gray(`   DEBUG: is Array: ${Array.isArray(groupMetadata.participants)}`));
                 
-                const participants = groupMetadata.participants || [];
+                groupParticipants = groupMetadata.participants || [];
                 
-                console.log(colors.gray(`   DEBUG: participants after assignment type: ${typeof participants}`));
-                console.log(colors.gray(`   DEBUG: participants is Array: ${Array.isArray(participants)}`));
-                console.log(colors.gray(`   DEBUG: participants.find exists: ${typeof participants.find}`));
+                console.log(colors.gray(`   DEBUG: participants after assignment type: ${typeof groupParticipants}`));
+                console.log(colors.gray(`   DEBUG: participants is Array: ${Array.isArray(groupParticipants)}`));
+                console.log(colors.gray(`   DEBUG: participants.find exists: ${typeof groupParticipants.find}`));
                 
-                if (!Array.isArray(participants)) {
+                if (!Array.isArray(groupParticipants)) {
                     console.log(colors.red(`   ❌ Participants is not an array`));
                     return;
                 }
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
-                console.log(colors.gray(`   Total participants: ${participants.length}`));
+                console.log(colors.gray(`   Total participants: ${groupParticipants.length}`));
                 console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
                 
                 // debug: print beberapa participant untuk liat formatnya
-                if (participants.length > 0) {
+                if (groupParticipants.length > 0) {
                     console.log(colors.gray(`   Sample participant IDs:`));
-                    participants.slice(0, 3).forEach(p => {
+                    groupParticipants.slice(0, 3).forEach(p => {
                         console.log(colors.gray(`     - ${p.id}`));
                     });
                 }
                 
                 // === CEK OWNER PAKE HELPER ===
                 console.log(colors.gray(`   DEBUG: About to call isOwnerInGroup...`));
-                const ownerInGroup = await isOwnerInGroup(sock, participants);
+                const ownerInGroup = await isOwnerInGroup(sock, groupParticipants);
                 console.log(colors.gray(`   DEBUG: isOwnerInGroup returned: ${ownerInGroup}`));
                 
                 if (!ownerInGroup) {
@@ -613,7 +613,8 @@ const connect = async () => {
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
                 // === BERSIHKAN TEXT PAKE HELPER ===
-                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, participants);
+                console.log(colors.gray(`   DEBUG: About to clean text, participants type: ${typeof groupParticipants}, isArray: ${Array.isArray(groupParticipants)}`));
+                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, groupParticipants);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
                 
@@ -633,6 +634,10 @@ const connect = async () => {
                         m.message?.documentMessage || m.message?.audioMessage;
         
         if (!text && !hasMedia) return;
+        
+        // variable untuk menyimpan data grup (kalo dari grup)
+        let groupParticipants = [];
+        let groupMetadata = null;
 
         // delay sebelum baca pesan (1-3 detik)
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
