@@ -1,8 +1,8 @@
 // plugins/editfoto.js
-const axios = require('axios');
-const crypto = require('crypto');
-const path = require('path');
-const mime = require('mime-types');
+import axios from 'axios';
+import crypto from 'crypto';
+import path from 'path';
+import mime from 'mime-types';
 
 // generate UUID v4 manual
 function uuidv4() {
@@ -169,8 +169,8 @@ const notegpt = {
     }
 };
 
-module.exports = {
-    description: 'Edit foto pake AI',
+export default {
+    description: 'Edit foto pake AI (ubah style, tambah objek, dll)',
     
     async execute({ sock, from, input, message, sender, fileBuffer }) {
         try {
@@ -186,7 +186,6 @@ module.exports = {
 
             console.log(`   🎨 Editing image with prompt: ${input}`);
 
-            // deteksi ekstensi dari mimetype
             const randomFileName = `${uuidv4()}.jpg`;
 
             // react processing
@@ -199,7 +198,6 @@ module.exports = {
 
             console.log(`   🚀 Processing with AI...`);
 
-            // edit pake notegpt
             const result = await notegpt.create(fileBuffer, randomFileName, input);
 
             if (!result.results || !result.results[0] || !result.results[0].url) {
@@ -211,7 +209,6 @@ module.exports = {
 
             console.log(`   ✅ Image edited successfully`);
 
-            // kirim hasil
             await sock.sendMessage(from, {
                 image: { url: editedImageUrl },
                 caption: `✨ Done!\n\n📝 Prompt: ${input}`
