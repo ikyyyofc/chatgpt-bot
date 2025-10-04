@@ -273,7 +273,7 @@ const connect = async () => {
         const sender = m.key.fromMe ? sock.user.id : (isGroup ? m.key.participant : from);
         const senderNumber = sender.split('@')[0];
         
-        const text = (
+        let text = (
             m.message?.conversation ||
             m.message?.extendedTextMessage?.text ||
             m.message?.imageMessage?.caption ||
@@ -282,19 +282,82 @@ const connect = async () => {
             ''
         );
 
-        if (isGroup) {
-            setTimeout(() => {
-                sock.groupLeave(from).catch(() => {});
-            }, 5000);
-            return;
-        }
-
         if (m.key.fromMe) return;
+
+        // handle grup
+        if (isGroup) {
+            try {
+                const groupMetadata = await sock.groupMetadata(from);
+                const participants = groupMetadata.participants;
+                const ownerInGroup = participants.some(p => p.id.split('@')[0] === config.OWNER_NUMBER);
+                
+                if (!ownerInGroup) {
+                    console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
+                    setTimeout(() => {
+                        sock.groupLeave(from).catch(() => {});
+                    }, 3000);
+                    return;
+                }
+                
+                // cek apakah bot di-tag
+                const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                const isBotMentioned = mentionedJid.includes(botNumber);
+                
+                if (!isBotMentioned) {
+                    // gak di-tag, abaikan
+                    return;
+                }
+                
+                console.log(colors.cyan(`\n👥 Group message from ${senderNumber} in ${groupMetadata.subject}`));
+                console.log(colors.green(`   ✅ Bot mentioned, processing...`));
+                
+                // hapus mention bot dari teks
+                const botMention = `@${sock.user.id.split(':')[0]}`;
+                text = text.replace(new RegExp(botMention, 'g'), '').trim();
+                
+                // replace mention user lain dengan nama mereka
+                if (mentionedJid.length > 0) {
+                    for (const jid of mentionedJid) {
+                        if (jid === botNumber) continue; // skip bot mention
+                        
+                        const mentionNumber = jid.split('@')[0];
+                        const participant = participants.find(p => p.id === jid);
+                        
+                        let name = mentionNumber;
+                        try {
+                            // coba ambil nama dari kontak
+                            const contactName = participant?.notify || participant?.name;
+                            if (contactName) {
+                                name = contactName;
+                            }
+                        } catch (e) {
+                            // fallback ke nomor
+                        }
+                        
+                        // replace @nomor dengan nama
+                        text = text.replace(new RegExp(`@${mentionNumber}`, 'g'), name);
+                    }
+                }
+                
+                console.log(colors.white(`   💬 Cleaned text: "${text}"`));
+                
+            } catch (error) {
+                console.error(colors.red('Error checking group:'), error.message);
+                return;
+            }
+        }
 
         if (text.trim() === '/reset') {
             const messageTimestamp = m.messageTimestamp * 1000;
             if (!isReady || messageTimestamp < botStartTime) {
                 console.log(colors.gray(`⏭️  Skipping old /reset command from ${senderNumber}`));
+                return;
+            }
+            
+            // reset gak work di grup
+            if (isGroup) {
+                console.log(colors.yellow(`   ⚠️  /reset ignored in group`));
                 return;
             }
             
@@ -413,13 +476,19 @@ const connect = async () => {
 
             await sock.sendPresenceUpdate('composing', from);
 
-            if (!userSessions.has(from)) {
-                userSessions.set(from, []);
-                console.log(colors.green(`   🆕 New user session created`));
+            // session history cuma untuk private chat
+            let history = [];
+            if (!isGroup) {
+                if (!userSessions.has(from)) {
+                    userSessions.set(from, []);
+                    console.log(colors.green(`   🆕 New user session created`));
+                }
+                
+                history = userSessions.get(from);
+                console.log(colors.yellow(`   📚 History: ${history.length} messages`));
+            } else {
+                console.log(colors.yellow(`   👥 Group chat - no history saved`));
             }
-            
-            const history = userSessions.get(from);
-            console.log(colors.yellow(`   📚 History: ${history.length} messages`));
 
             const messagesToProcess = [...queue];
             queue.length = 0;
@@ -437,7 +506,7 @@ const connect = async () => {
                     return;
                 }
 
-                const msgText = (
+                let msgText = (
                     message.message?.conversation ||
                     message.message?.extendedTextMessage?.text ||
                     message.message?.imageMessage?.caption ||
@@ -445,6 +514,11 @@ const connect = async () => {
                     message.message?.documentMessage?.caption ||
                     ''
                 );
+
+                // kalo dari grup, udah dibersihkan di atas (text variable)
+                if (isGroup) {
+                    msgText = text;
+                }
 
                 let userMessage = msgText;
 
@@ -577,7 +651,7 @@ const connect = async () => {
                 return;
             }
 
-            if (history.length > config.MAX_HISTORY) {
+            if (!isGroup && history.length > config.MAX_HISTORY) {
                 const removed = history.length - config.MAX_HISTORY;
                 history.splice(0, removed);
                 console.log(colors.yellow(`   🗑️  Removed ${removed} old messages from history`));
@@ -690,12 +764,15 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
 
             const parsed = parseAIResponse(response);
 
-            history.push({
-                role: 'assistant',
-                content: parsed.output
-            });
+            // cuma save ke history kalo bukan grup
+            if (!isGroup) {
+                history.push({
+                    role: 'assistant',
+                    content: parsed.output
+                });
 
-            saveSessions();
+                saveSessions();
+            }
 
             // === KIRIM PESAN BOT DAN SIMPAN KEY-NYA ===
             const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
