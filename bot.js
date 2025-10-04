@@ -262,7 +262,7 @@ function isBotMentioned(mentionedJid, text, botJid, botNumber, botLid = null) {
 }
 
 // === HELPER: Bersihkan text dari mention dan replace dengan nama ===
-async function cleanTextFromMentions(sock, text, mentionedJid, botJid, botNumber, botLid, participants) {
+function cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLid, participants) {
     // hapus mention bot dari text
     // bot bisa di-mention dalam beberapa format:
     // 1. @6288707077228 (nomor)
@@ -298,26 +298,16 @@ async function cleanTextFromMentions(sock, text, mentionedJid, botJid, botNumber
             participant = participants.find(p => p.jid === mentionJid);
         }
         
-        // ambil nama - prioritas: getName() > participant.notify > nomor
+        // ambil nama atau nomor
         let name = mentionJid.split('@')[0].split(':')[0]; // fallback: nomor dari mention
         
-        if (participant?.jid) {
-            try {
-                // gunakan getName dari sock (function dari simple.js)
-                const fetchedName = await sock.getName(participant.jid, true);
-                if (fetchedName) {
-                    name = fetchedName;
-                }
-            } catch (e) {
-                // fallback ke notify kalo getName gagal
-                if (participant.notify) {
-                    name = participant.notify;
-                } else if (participant.jid) {
-                    name = participant.jid.split('@')[0];
-                }
+        if (participant) {
+            // prioritas: notify > jid number
+            if (participant.notify) {
+                name = participant.notify;
+            } else if (participant.jid) {
+                name = participant.jid.split('@')[0];
             }
-        } else if (participant?.notify) {
-            name = participant.notify;
         }
         
         // replace @nomor atau @lid dengan nama
@@ -615,7 +605,7 @@ const connect = async () => {
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
                 // === BERSIHKAN TEXT PAKE HELPER ===
-                text = await cleanTextFromMentions(sock, text, mentionedJid, botJid, botNumber, botLidCache, participants);
+                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, participants);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
                 
