@@ -576,7 +576,7 @@ const connect = async () => {
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
                 // === BERSIHKAN TEXT PAKE HELPER ===
-                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, participants);
+                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, participants);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
                 
