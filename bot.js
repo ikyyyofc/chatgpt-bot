@@ -624,6 +624,7 @@ const connect = async () => {
                 
             } catch (error) {
                 console.error(colors.red('Error checking group:'), error.message);
+                console.error(colors.red('Error stack:'), error.stack);
                 return;
             }
         }
