@@ -219,6 +219,11 @@ function isOwner(sender, senderNumber) {
 
 // === HELPER: Cek apakah owner ada di grup ===
 async function isOwnerInGroup(sock, participants) {
+    if (!Array.isArray(participants) || participants.length === 0) {
+        console.log(colors.red(`   ⚠️  Invalid participants array`));
+        return false;
+    }
+    
     const ownerNumber = config.OWNER_NUMBER;
     const ownerJid = ownerNumber + '@s.whatsapp.net';
     
@@ -539,7 +544,12 @@ const connect = async () => {
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
-                const participants = groupMetadata.participants;
+                const participants = groupMetadata.participants || [];
+                
+                if (!Array.isArray(participants)) {
+                    console.log(colors.red(`   ❌ Participants is not an array`));
+                    return;
+                }
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
