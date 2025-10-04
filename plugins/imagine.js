@@ -1,7 +1,7 @@
 // plugins/imagine.js
-const axios = require('axios');
+import axios from 'axios';
 
-module.exports = {
+export default {
     description: 'Generate gambar dari text pake AI',
     
     async execute({ sock, from, input, message, sender }) {
@@ -27,24 +27,20 @@ module.exports = {
             let mode = null;
             const maxRetries = 20;
 
-            // retry sampe 20x
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
                     console.log(`   🔄 Attempt ${attempt}/${maxRetries}...`);
 
-                    // generate gambar pake API
                     const response = await axios.get(
                         `https://wudysoft.xyz/api/ai/nano-banana/v12?prompt=${encodeURIComponent(input)}`,
                         { timeout: 30000 }
                     );
 
-                    // cek kalo ada error di response
                     if (response.data.error) {
                         console.log(`   ⚠️  API Error: ${response.data.error}`);
                         continue;
                     }
 
-                    // kalo sukses
                     if (response.data && response.data.result) {
                         imageUrl = response.data.result;
                         mode = response.data.mode || 'text-to-image';
@@ -56,11 +52,9 @@ module.exports = {
                     console.log(`   ⚠️  Attempt ${attempt} failed: ${error.message}`);
                 }
 
-                // delay sebentar sebelum retry (500ms)
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
 
-            // cek kalo semua attempt gagal
             if (!imageUrl) {
                 console.log(`   ❌ All ${maxRetries} attempts failed`);
                 await sock.sendMessage(from, { 
@@ -71,7 +65,6 @@ module.exports = {
 
             console.log(`   ✅ Image generated (${mode})`);
 
-            // kirim hasil
             await sock.sendMessage(from, {
                 image: { url: imageUrl },
                 caption: `✨ Generated!\n\n📝 Prompt: ${input}\n🤖 Mode: ${mode}`
