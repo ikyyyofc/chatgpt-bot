@@ -544,7 +544,16 @@ const connect = async () => {
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
+                
+                console.log(colors.gray(`   DEBUG: groupMetadata type: ${typeof groupMetadata}`));
+                console.log(colors.gray(`   DEBUG: groupMetadata.participants type: ${typeof groupMetadata.participants}`));
+                console.log(colors.gray(`   DEBUG: is Array: ${Array.isArray(groupMetadata.participants)}`));
+                
                 const participants = groupMetadata.participants || [];
+                
+                console.log(colors.gray(`   DEBUG: participants after assignment type: ${typeof participants}`));
+                console.log(colors.gray(`   DEBUG: participants is Array: ${Array.isArray(participants)}`));
+                console.log(colors.gray(`   DEBUG: participants.find exists: ${typeof participants.find}`));
                 
                 if (!Array.isArray(participants)) {
                     console.log(colors.red(`   ❌ Participants is not an array`));
@@ -564,7 +573,11 @@ const connect = async () => {
                 }
                 
                 // === CEK OWNER PAKE HELPER ===
-                if (!await isOwnerInGroup(sock, participants)) {
+                console.log(colors.gray(`   DEBUG: About to call isOwnerInGroup...`));
+                const ownerInGroup = await isOwnerInGroup(sock, participants);
+                console.log(colors.gray(`   DEBUG: isOwnerInGroup returned: ${ownerInGroup}`));
+                
+                if (!ownerInGroup) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
                     setTimeout(() => {
                         sock.groupLeave(from).catch(() => {});
