@@ -1,5 +1,5 @@
 // config.js
-module.exports = {
+export default {
     // nomor owner (tanpa @s.whatsapp.net, contoh: 628123456789)
     OWNER_NUMBER: '6287866255637', // ganti dengan nomor lu
     
