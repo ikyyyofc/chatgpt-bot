@@ -289,7 +289,12 @@ const connect = async () => {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
                 const participants = groupMetadata.participants;
-                const ownerInGroup = participants.some(p => p.id.split('@')[0] === config.OWNER_NUMBER);
+                
+                // cek owner dengan lid atau jid
+                const ownerInGroup = participants.some(p => {
+                    const participantNumber = (p.id || p.lid || '').split('@')[0];
+                    return participantNumber === config.OWNER_NUMBER;
+                });
                 
                 if (!ownerInGroup) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
@@ -301,8 +306,12 @@ const connect = async () => {
                 
                 // cek apakah bot di-tag
                 const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-                const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-                const isBotMentioned = mentionedJid.includes(botNumber);
+                const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                const botNumber = sock.user.id.split(':')[0];
+                
+                // cek mention pake jid atau cek di text pake @nomor
+                const isBotMentioned = mentionedJid.includes(botJid) || 
+                                      text.includes(`@${botNumber}`);
                 
                 if (!isBotMentioned) {
                     // gak di-tag, abaikan
@@ -313,23 +322,29 @@ const connect = async () => {
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
                 // hapus mention bot dari teks
-                const botMention = `@${sock.user.id.split(':')[0]}`;
+                const botMention = `@${botNumber}`;
                 text = text.replace(new RegExp(botMention, 'g'), '').trim();
                 
                 // replace mention user lain dengan nama mereka
                 if (mentionedJid.length > 0) {
                     for (const jid of mentionedJid) {
-                        if (jid === botNumber) continue; // skip bot mention
+                        if (jid === botJid) continue; // skip bot mention
                         
                         const mentionNumber = jid.split('@')[0];
-                        const participant = participants.find(p => p.id === jid);
+                        
+                        // cari participant pake jid atau lid
+                        const participant = participants.find(p => 
+                            p.id === jid || p.lid === jid
+                        );
                         
                         let name = mentionNumber;
                         try {
                             // coba ambil nama dari kontak
-                            const contactName = participant?.notify || participant?.name;
-                            if (contactName) {
-                                name = contactName;
+                            if (participant) {
+                                const contactName = participant.notify || participant.name;
+                                if (contactName) {
+                                    name = contactName;
+                                }
                             }
                         } catch (e) {
                             // fallback ke nomor
