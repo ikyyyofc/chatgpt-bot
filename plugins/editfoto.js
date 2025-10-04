@@ -170,7 +170,7 @@ const notegpt = {
 };
 
 export default {
-    description: 'Edit foto pake AI (ubah style, tambah objek, dll)',
+    description: 'Edit foto pake AI',
     
     async execute({ sock, from, input, message, sender, fileBuffer }) {
         try {
