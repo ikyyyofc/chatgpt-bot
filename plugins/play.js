@@ -32,14 +32,6 @@ export default {
 
             console.log(`   ✅ Found: ${title}`);
 
-            // react download
-            await sock.sendMessage(from, {
-                react: {
-                    text: '⬇️',
-                    key: message.key
-                }
-            });
-
             // download pake API
             console.log(`   ⬇️  Downloading from API...`);
             const res = await axios.get(
