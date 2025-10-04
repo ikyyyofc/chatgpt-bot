@@ -310,9 +310,34 @@ const connect = async () => {
                 return;
             }
 
+            // === CEK OWNER (ambil jid dan lid) ===
+            let isOwner = false;
+            
+            // cek nomor langsung dulu
+            if (senderNumber === config.OWNER_NUMBER) {
+                isOwner = true;
+            } else {
+                // kalo di grup, cek pake lid juga
+                try {
+                    const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
+                    const [ownerInfo] = await sock.onWhatsApp(ownerJid);
+                    
+                    if (ownerInfo && ownerInfo.exists) {
+                        const ownerLid = ownerInfo.lid;
+                        
+                        // cek sender dengan jid atau lid owner
+                        if (sender === ownerJid || sender === ownerLid) {
+                            isOwner = true;
+                        }
+                    }
+                } catch (e) {
+                    console.log(colors.red(`   Error checking owner: ${e.message}`));
+                }
+            }
+
             // /leave - owner only, group only
             if (command === '/leave') {
-                if (senderNumber !== config.OWNER_NUMBER) {
+                if (!isOwner) {
                     return;
                 }
 
@@ -321,7 +346,7 @@ const connect = async () => {
                     return;
                 }
 
-                console.log(colors.yellow(`\n👋 /leave from owner ${senderNumber} in group ${from}`));
+                console.log(colors.yellow(`\n👋 /leave from owner in group ${from}`));
                 
                 try {
                     await sock.sendMessage(from, { text: 'oke deh, bye bye 👋' });
@@ -339,11 +364,11 @@ const connect = async () => {
 
             // /update - owner only
             if (command === '/update') {
-                if (senderNumber !== config.OWNER_NUMBER) {
+                if (!isOwner) {
                     return;
                 }
 
-                console.log(colors.yellow(`\n🔄 /update from owner ${senderNumber}`));
+                console.log(colors.yellow(`\n🔄 /update from owner`));
 
                 try {
                     await sock.sendMessage(from, { text: '🔄 Pulling latest changes from git...' });
@@ -377,11 +402,11 @@ const connect = async () => {
 
             // /eval - owner only
             if (command === '/eval') {
-                if (senderNumber !== config.OWNER_NUMBER) {
+                if (!isOwner) {
                     return;
                 }
 
-                console.log(colors.yellow(`\n⚡ /eval from owner ${senderNumber}`));
+                console.log(colors.yellow(`\n⚡ /eval from owner`));
 
                 const code = text.slice(6).trim();
                 
