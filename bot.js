@@ -284,7 +284,148 @@ const connect = async () => {
 
         if (m.key.fromMe) return;
 
-        // handle grup
+        // === COMMAND HANDLER (sebelum filter grup) ===
+        const isCommand = text.trim().startsWith('/');
+        
+        if (isCommand) {
+            const messageTimestamp = m.messageTimestamp * 1000;
+            if (!isReady || messageTimestamp < botStartTime) {
+                console.log(colors.gray(`⏭️  Skipping old command from ${senderNumber}`));
+                return;
+            }
+
+            const command = text.trim().split(' ')[0].toLowerCase();
+
+            // /reset - private chat only
+            if (command === '/reset') {
+                if (isGroup) {
+                    console.log(colors.yellow(`   ⚠️  /reset ignored in group`));
+                    return;
+                }
+                
+                console.log(colors.yellow(`\n🔄 /reset from ${senderNumber}`));
+                userSessions.delete(from);
+                saveSessions();
+                await sock.sendMessage(from, { text: 'oke, chat history udah direset! mulai dari awal yuk' });
+                return;
+            }
+
+            // /leave - owner only, group only
+            if (command === '/leave') {
+                if (senderNumber !== config.OWNER_NUMBER) {
+                    return;
+                }
+
+                if (!isGroup) {
+                    await sock.sendMessage(from, { text: 'ini bukan grup bro' });
+                    return;
+                }
+
+                console.log(colors.yellow(`\n👋 /leave from owner ${senderNumber} in group ${from}`));
+                
+                try {
+                    await sock.sendMessage(from, { text: 'oke deh, bye bye 👋' });
+                    
+                    setTimeout(async () => {
+                        await sock.groupLeave(from);
+                        console.log(colors.green(`✅ Left group ${from}`));
+                    }, 1000);
+                } catch (error) {
+                    console.error(colors.red('❌ Leave group error:'), error);
+                    await sock.sendMessage(from, { text: 'gagal keluar grup nih...' });
+                }
+                return;
+            }
+
+            // /update - owner only
+            if (command === '/update') {
+                if (senderNumber !== config.OWNER_NUMBER) {
+                    return;
+                }
+
+                console.log(colors.yellow(`\n🔄 /update from owner ${senderNumber}`));
+
+                try {
+                    await sock.sendMessage(from, { text: '🔄 Pulling latest changes from git...' });
+
+                    const { stdout, stderr } = await execPromise('git pull');
+                    
+                    console.log('Git pull output:', stdout);
+                    if (stderr) console.log('Git pull errors:', stderr);
+
+                    console.log(colors.green('💾 Saving sessions before restart...'));
+                    saveSessions();
+
+                    await sock.sendMessage(from, { 
+                        text: `✅ Update berhasil!\n🔄 Restarting bot...\n\n${stdout}` 
+                    });
+
+                    console.log(colors.green('🔄 Restarting bot...\n'));
+
+                    setTimeout(() => {
+                        process.exit(0);
+                    }, 1000);
+
+                } catch (error) {
+                    console.error(colors.red('❌ Update error:'), error);
+                    await sock.sendMessage(from, { 
+                        text: `❌ Update gagal!\n\n${error.message}` 
+                    });
+                }
+                return;
+            }
+
+            // /eval - owner only
+            if (command === '/eval') {
+                if (senderNumber !== config.OWNER_NUMBER) {
+                    return;
+                }
+
+                console.log(colors.yellow(`\n⚡ /eval from owner ${senderNumber}`));
+
+                const code = text.slice(6).trim();
+                
+                if (!code) {
+                    await sock.sendMessage(from, { text: 'eval apaan? ga ada code nya' });
+                    return;
+                }
+
+                try {
+                    let result;
+                    
+                    const evalFunc = new Function(
+                        'sock', 'from', 'm', 'plugins', 'userSessions', 
+                        'config', 'fs', 'path', 'util', 'colors',
+                        'loadPlugins', 'saveSessions', 'loadSessions', 'isGroup',
+                        `return (async () => { ${code} })()`
+                    );
+                    
+                    result = await evalFunc(
+                        sock, from, m, plugins, userSessions,
+                        config, fs, path, util, colors,
+                        loadPlugins, saveSessions, loadSessions, isGroup
+                    );
+
+                    const output = util.inspect(result, { depth: 2 });
+                    
+                    console.log(colors.green(`✅ Eval result:`), output);
+                    
+                    await sock.sendMessage(from, { 
+                        text: `✅ Eval Success:\n\n${output}` 
+                    });
+
+                } catch (error) {
+                    console.error(colors.red('❌ Eval error:'), error);
+                    
+                    await sock.sendMessage(from, { 
+                        text: `❌ Eval Error:\n\n${error.message}\n\nStack:\n${error.stack}` 
+                    });
+                }
+                return;
+            }
+        }
+
+        // === FILTER GRUP (setelah command) ===
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
@@ -405,124 +546,6 @@ const connect = async () => {
                 console.error(colors.red('Error checking group:'), error.message);
                 return;
             }
-        }
-
-        if (text.trim() === '/reset') {
-            const messageTimestamp = m.messageTimestamp * 1000;
-            if (!isReady || messageTimestamp < botStartTime) {
-                console.log(colors.gray(`⏭️  Skipping old /reset command from ${senderNumber}`));
-                return;
-            }
-            
-            // reset gak work di grup
-            if (isGroup) {
-                console.log(colors.yellow(`   ⚠️  /reset ignored in group`));
-                return;
-            }
-            
-            console.log(colors.yellow(`\n🔄 /reset from ${senderNumber}`));
-            userSessions.delete(from);
-            saveSessions();
-            await sock.sendMessage(from, { text: 'oke, chat history udah direset! mulai dari awal yuk' });
-            return;
-        }
-
-        if (text.trim() === '/update') {
-            const messageTimestamp = m.messageTimestamp * 1000;
-            if (!isReady || messageTimestamp < botStartTime) {
-                console.log(colors.gray(`⏭️  Skipping old /update command from ${senderNumber}`));
-                return;
-            }
-            
-            if (senderNumber !== config.OWNER_NUMBER) {
-                return;
-            }
-
-            console.log(colors.yellow(`\n🔄 /update from owner ${senderNumber}`));
-
-            try {
-                await sock.sendMessage(from, { text: '🔄 Pulling latest changes from git...' });
-
-                const { stdout, stderr } = await execPromise('git pull');
-                
-                console.log('Git pull output:', stdout);
-                if (stderr) console.log('Git pull errors:', stderr);
-
-                console.log(colors.green('💾 Saving sessions before restart...'));
-                saveSessions();
-
-                await sock.sendMessage(from, { 
-                    text: `✅ Update berhasil!\n🔄 Restarting bot...\n\n${stdout}` 
-                });
-
-                console.log(colors.green('🔄 Restarting bot...\n'));
-
-                setTimeout(() => {
-                    process.exit(0);
-                }, 1000);
-
-            } catch (error) {
-                console.error(colors.red('❌ Update error:'), error);
-                await sock.sendMessage(from, { 
-                    text: `❌ Update gagal!\n\n${error.message}` 
-                });
-            }
-            return;
-        }
-
-        if (text.trim().startsWith('/eval ')) {
-            const messageTimestamp = m.messageTimestamp * 1000;
-            if (!isReady || messageTimestamp < botStartTime) {
-                console.log(colors.gray(`⏭️  Skipping old /eval command from ${senderNumber}`));
-                return;
-            }
-            
-            if (senderNumber !== config.OWNER_NUMBER) {
-                return;
-            }
-
-            console.log(colors.yellow(`\n⚡ /eval from owner ${senderNumber}`));
-
-            const code = text.slice(6).trim();
-            
-            if (!code) {
-                await sock.sendMessage(from, { text: 'eval apaan? ga ada code nya' });
-                return;
-            }
-
-            try {
-                let result;
-                
-                // biar bisa akses variable di scope
-                const evalFunc = new Function(
-                    'sock', 'from', 'm', 'plugins', 'userSessions', 
-                    'config', 'fs', 'path', 'util', 'colors',
-                    'loadPlugins', 'saveSessions', 'loadSessions',
-                    `return (async () => { ${code} })()`
-                );
-                
-                result = await evalFunc(
-                    sock, from, m, plugins, userSessions,
-                    config, fs, path, util, colors,
-                    loadPlugins, saveSessions, loadSessions
-                );
-
-                const output = util.inspect(result, { depth: 2 });
-                
-                console.log(colors.green(`✅ Eval result:`), output);
-                
-                await sock.sendMessage(from, { 
-                    text: `✅ Eval Success:\n\n${output}` 
-                });
-
-            } catch (error) {
-                console.error(colors.red('❌ Eval error:'), error);
-                
-                await sock.sendMessage(from, { 
-                    text: `❌ Eval Error:\n\n${error.message}\n\nStack:\n${error.stack}` 
-                });
-            }
-            return;
         }
 
         const hasMedia = m.message?.imageMessage || m.message?.videoMessage || 
