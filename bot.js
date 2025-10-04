@@ -543,17 +543,8 @@ const connect = async () => {
         // === FILTER GRUP ===
         if (isGroup) {
             try {
-                groupMetadata = await sock.groupMetadata(from);
-                
-                console.log(colors.gray(`   DEBUG: groupMetadata type: ${typeof groupMetadata}`));
-                console.log(colors.gray(`   DEBUG: groupMetadata.participants type: ${typeof groupMetadata.participants}`));
-                console.log(colors.gray(`   DEBUG: is Array: ${Array.isArray(groupMetadata.participants)}`));
-                
-                groupParticipants = groupMetadata.participants || [];
-                
-                console.log(colors.gray(`   DEBUG: participants after assignment type: ${typeof groupParticipants}`));
-                console.log(colors.gray(`   DEBUG: participants is Array: ${Array.isArray(groupParticipants)}`));
-                console.log(colors.gray(`   DEBUG: participants.find exists: ${typeof groupParticipants.find}`));
+                const groupMetadata = await sock.groupMetadata(from);
+                const groupParticipants = groupMetadata.participants || [];
                 
                 if (!Array.isArray(groupParticipants)) {
                     console.log(colors.red(`   ❌ Participants is not an array`));
@@ -573,9 +564,7 @@ const connect = async () => {
                 }
                 
                 // === CEK OWNER PAKE HELPER ===
-                console.log(colors.gray(`   DEBUG: About to call isOwnerInGroup...`));
                 const ownerInGroup = await isOwnerInGroup(sock, groupParticipants);
-                console.log(colors.gray(`   DEBUG: isOwnerInGroup returned: ${ownerInGroup}`));
                 
                 if (!ownerInGroup) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
@@ -613,12 +602,11 @@ const connect = async () => {
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
                 // === BERSIHKAN TEXT PAKE HELPER ===
-                console.log(colors.gray(`   DEBUG: About to clean text, participants type: ${typeof groupParticipants}, isArray: ${Array.isArray(groupParticipants)}`));
-                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, groupParticipants);
+                cleanedTextForGroup = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, groupParticipants);
                 
-                console.log(colors.white(`   💬 Cleaned text: "${text}"`));
+                console.log(colors.white(`   💬 Cleaned text: "${cleanedTextForGroup}"`));
                 
-                if (!text.trim()) {
+                if (!cleanedTextForGroup.trim()) {
                     console.log(colors.yellow(`   ⚠️  Text empty after cleaning, ignoring`));
                     return;
                 }
@@ -636,8 +624,7 @@ const connect = async () => {
         if (!text && !hasMedia) return;
         
         // variable untuk menyimpan data grup (kalo dari grup)
-        let groupParticipants = [];
-        let groupMetadata = null;
+        let cleanedTextForGroup = text; // simpan text yang udah di-clean
 
         // delay sebelum baca pesan (1-3 detik)
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
@@ -740,7 +727,7 @@ const connect = async () => {
 
                 // kalo dari grup, udah dibersihkan di atas
                 if (isGroup) {
-                    msgText = text;
+                    msgText = cleanedTextForGroup;
                 }
 
                 let userMessage = msgText;
