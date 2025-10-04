@@ -294,49 +294,40 @@ const connect = async () => {
                 console.log(colors.gray(`   Owner number to find: ${config.OWNER_NUMBER}`));
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
                 
-                // cek owner dengan cara cek jid real dari lid
-                let ownerInGroup = false;
+                // cek owner: ambil lid owner dulu
+                const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
+                let ownerLid = null;
                 
-                for (const p of participants) {
-                    const participantId = p.id || '';
-                    
-                    // kalo formatnya @lid, cek jid real-nya
-                    if (participantId.includes('@lid')) {
-                        try {
-                            const [result] = await sock.onWhatsApp(participantId);
-                            if (result && result.jid) {
-                                const realNumber = result.jid.split('@')[0].replace(/[^0-9]/g, '');
-                                const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
-                                
-                                console.log(colors.gray(`   Checking lid: ${participantId} -> real: ${realNumber}`));
-                                
-                                if (realNumber === ownerClean) {
-                                    ownerInGroup = true;
-                                    break;
-                                }
-                            }
-                        } catch (e) {
-                            // fallback ke cek langsung dari id
-                            const idNumber = participantId.split('@')[0].replace(/[^0-9]/g, '');
-                            const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
-                            if (idNumber === ownerClean) {
-                                ownerInGroup = true;
-                                break;
-                            }
-                        }
-                    } else {
-                        // format biasa @s.whatsapp.net
-                        const idNumber = participantId.split('@')[0].replace(/[^0-9]/g, '');
-                        const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
-                        
-                        console.log(colors.gray(`   Checking jid: ${participantId} -> ${idNumber}`));
-                        
-                        if (idNumber === ownerClean) {
-                            ownerInGroup = true;
-                            break;
-                        }
+                try {
+                    const [ownerInfo] = await sock.onWhatsApp(ownerJid);
+                    if (ownerInfo && ownerInfo.exists) {
+                        ownerLid = ownerInfo.lid;
+                        console.log(colors.gray(`   Owner jid: ${ownerJid}`));
+                        console.log(colors.gray(`   Owner lid: ${ownerLid}`));
                     }
+                } catch (e) {
+                    console.log(colors.red(`   Error getting owner info: ${e.message}`));
                 }
+                
+                // cek apakah owner ada di participant (cek jid atau lid)
+                const ownerInGroup = participants.some(p => {
+                    const participantId = p.id || '';
+                    console.log(colors.gray(`   Comparing with: ${participantId}`));
+                    
+                    // cek jid
+                    if (participantId === ownerJid) {
+                        console.log(colors.green(`   ✅ Match by JID!`));
+                        return true;
+                    }
+                    
+                    // cek lid
+                    if (ownerLid && participantId === ownerLid) {
+                        console.log(colors.green(`   ✅ Match by LID!`));
+                        return true;
+                    }
+                    
+                    return false;
+                });
                 
                 if (!ownerInGroup) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
@@ -353,10 +344,18 @@ const connect = async () => {
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
-                // cek mention pake jid atau cek di text pake @nomor
+                // ambil lid bot juga
+                let botLid = null;
+                try {
+                    const [botInfo] = await sock.onWhatsApp(botJid);
+                    if (botInfo && botInfo.exists) {
+                        botLid = botInfo.lid;
+                    }
+                } catch (e) {}
+                
+                // cek mention pake jid atau lid
                 const isBotMentioned = mentionedJid.some(jid => {
-                    const jidNumber = jid.split('@')[0].replace(/[^0-9]/g, '');
-                    return jidNumber === botNumber;
+                    return jid === botJid || (botLid && jid === botLid);
                 }) || text.includes(`@${botNumber}`);
                 
                 if (!isBotMentioned) {
@@ -374,32 +373,13 @@ const connect = async () => {
                 // replace mention user lain dengan nama mereka
                 if (mentionedJid.length > 0) {
                     for (const jid of mentionedJid) {
-                        const jidNumber = jid.split('@')[0].replace(/[^0-9]/g, '');
-                        if (jidNumber === botNumber) continue; // skip bot mention
+                        // skip bot mention (cek jid atau lid)
+                        if (jid === botJid || (botLid && jid === botLid)) continue;
                         
                         const mentionNumber = jid.split('@')[0];
                         
-                        // cari participant pake jid atau lid
-                        let participant = null;
-                        
-                        // kalo mention pake @lid, cari real jid dulu
-                        if (jid.includes('@lid')) {
-                            try {
-                                const [result] = await sock.onWhatsApp(jid);
-                                if (result && result.jid) {
-                                    participant = participants.find(p => {
-                                        if (p.id.includes('@lid')) {
-                                            return p.id === jid;
-                                        }
-                                        return p.id === result.jid;
-                                    });
-                                }
-                            } catch (e) {}
-                        }
-                        
-                        if (!participant) {
-                            participant = participants.find(p => p.id === jid);
-                        }
+                        // cari participant
+                        const participant = participants.find(p => p.id === jid);
                         
                         let name = mentionNumber;
                         try {
