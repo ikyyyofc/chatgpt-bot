@@ -290,10 +290,28 @@ const connect = async () => {
                 const groupMetadata = await sock.groupMetadata(from);
                 const participants = groupMetadata.participants;
                 
-                // cek owner dengan lid atau jid
+                console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
+                console.log(colors.gray(`   Owner number to find: ${config.OWNER_NUMBER}`));
+                
+                // debug: log semua participant
+                console.log(colors.gray(`   Total participants: ${participants.length}`));
+                participants.forEach((p, i) => {
+                    const pId = p.id || '';
+                    const pLid = p.lid || '';
+                    console.log(colors.gray(`   [${i}] id: ${pId}, lid: ${pLid}`));
+                });
+                
+                // cek owner dengan berbagai kemungkinan format
                 const ownerInGroup = participants.some(p => {
-                    const participantNumber = (p.id || p.lid || '').split('@')[0];
-                    return participantNumber === config.OWNER_NUMBER;
+                    const participantId = p.id || '';
+                    const participantLid = p.lid || '';
+                    
+                    // coba berbagai format
+                    const idNumber = participantId.split('@')[0].replace(/[^0-9]/g, '');
+                    const lidNumber = participantLid.split('@')[0].replace(/[^0-9]/g, '');
+                    const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
+                    
+                    return idNumber === ownerClean || lidNumber === ownerClean;
                 });
                 
                 if (!ownerInGroup) {
@@ -303,6 +321,8 @@ const connect = async () => {
                     }, 3000);
                     return;
                 }
+                
+                console.log(colors.green(`   ✅ Owner found in group!`));
                 
                 // cek apakah bot di-tag
                 const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
