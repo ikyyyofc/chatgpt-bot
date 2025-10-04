@@ -218,9 +218,23 @@ function isOwner(sender, senderNumber) {
 }
 
 // === HELPER: Cek apakah owner ada di grup ===
-function isOwnerInGroup(participants) {
-    const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
-    return participants.some(p => p.id === ownerJid);
+async function isOwnerInGroup(sock, participants) {
+    const ownerNumber = config.OWNER_NUMBER;
+    const ownerJid = ownerNumber + '@s.whatsapp.net';
+    
+    return participants.some(p => {
+        // cek dari field jid (JID asli)
+        if (p.jid === ownerJid) return true;
+        
+        // cek dari field id (bisa LID atau JID)
+        if (p.id === ownerJid) return true;
+        
+        // cek nomor aja dari field manapun
+        const idNumber = p.id?.split('@')[0];
+        const jidNumber = p.jid?.split('@')[0];
+        
+        return idNumber === ownerNumber || jidNumber === ownerNumber;
+    });
 }
 
 // === HELPER: Cek apakah bot di-mention ===
@@ -492,9 +506,19 @@ const connect = async () => {
                 const participants = groupMetadata.participants;
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
+                console.log(colors.gray(`   Total participants: ${participants.length}`));
+                console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
+                
+                // debug: print beberapa participant untuk liat formatnya
+                if (participants.length > 0) {
+                    console.log(colors.gray(`   Sample participant IDs:`));
+                    participants.slice(0, 3).forEach(p => {
+                        console.log(colors.gray(`     - ${p.id}`));
+                    });
+                }
                 
                 // === CEK OWNER PAKE HELPER ===
-                if (!isOwnerInGroup(participants)) {
+                if (!await isOwnerInGroup(sock, participants)) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
                     setTimeout(() => {
                         sock.groupLeave(from).catch(() => {});
