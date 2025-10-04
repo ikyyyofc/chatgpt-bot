@@ -1,13 +1,11 @@
 // bot.js
 import './config.js';
-import baileys from '@whiskeysockets/baileys';
-const {
-    default: makeWaSocket,
+import makeWASocket, { 
     useMultiFileAuthState,
     PHONENUMBER_MCC,
     DisconnectReason,
     downloadMediaMessage
-} = baileys;
+} from '@whiskeysockets/baileys';
 import Pino from 'pino';
 import fs from 'fs';
 import path from 'path';
@@ -192,7 +190,7 @@ const connect = async () => {
     const { state, saveCreds } = await useMultiFileAuthState('session');
     const pairingConfig = JSON.parse(fs.readFileSync('./pairing.json', 'utf-8'));
 
-    const sock = makeWaSocket({
+    const sock = makeWASocket({
         printQRInTerminal: pairingConfig.pairing?.state && pairingConfig.pairing?.number ? false : true,
         auth: state,
         browser: ['Chrome (Linux)', '', ''],
