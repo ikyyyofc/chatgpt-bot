@@ -195,6 +195,67 @@ function resetOfflineTimer(sock) {
     }, AUTO_OFFLINE_DELAY);
 }
 
+// === HELPER: Ambil sender yang bener ===
+function getSender(m, isGroup, from) {
+    if (m.key.fromMe) {
+        return m.key.remoteJid.split('@')[0] + '@s.whatsapp.net';
+    }
+    
+    if (isGroup) {
+        // di grup: prioritas participantPn (JID), fallback ke participant (LID)
+        return m.key.participantPn || m.key.participant;
+    }
+    
+    // di private chat: from udah JID yang bener
+    // senderLid ga dipake karena from udah format @s.whatsapp.net
+    return from;
+}
+
+// === HELPER: Cek apakah user adalah owner ===
+function isOwner(sender, senderNumber) {
+    const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
+    return sender === ownerJid || senderNumber === config.OWNER_NUMBER;
+}
+
+// === HELPER: Cek apakah owner ada di grup ===
+function isOwnerInGroup(participants) {
+    const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
+    return participants.some(p => p.id === ownerJid);
+}
+
+// === HELPER: Cek apakah bot di-mention ===
+function isBotMentioned(mentionedJid, text, botJid, botNumber) {
+    return mentionedJid.includes(botJid) || text.includes(`@${botNumber}`);
+}
+
+// === HELPER: Bersihkan text dari mention dan replace dengan nama ===
+function cleanTextFromMentions(text, mentionedJid, botJid, botNumber, participants) {
+    // hapus mention bot
+    const botMention = `@${botNumber}`;
+    text = text.replace(new RegExp(botMention, 'g'), '').trim();
+    
+    // replace mention user lain dengan nama
+    for (const jid of mentionedJid) {
+        if (jid === botJid) continue;
+        
+        const mentionNumber = jid.split('@')[0];
+        
+        // cari participant
+        const participant = participants.find(p => 
+            p.id === jid || p.id.split('@')[0] === mentionNumber
+        );
+        
+        let name = mentionNumber;
+        if (participant?.notify) {
+            name = participant.notify;
+        }
+        
+        text = text.replace(new RegExp(`@${mentionNumber}`, 'g'), name);
+    }
+    
+    return text;
+}
+
 const connect = async () => {
     await loadPlugins();
     loadSessions();
@@ -270,7 +331,9 @@ const connect = async () => {
 
         const from = m.key.remoteJid;
         const isGroup = from.endsWith('@g.us');
-        const sender = m.key.fromMe ? sock.user.id : (isGroup ? m.key.participant : from);
+        
+        // === GUNAKAN HELPER FUNCTION ===
+        const sender = getSender(m, isGroup, from);
         const senderNumber = sender.split('@')[0];
         
         let text = (
@@ -284,7 +347,7 @@ const connect = async () => {
 
         if (m.key.fromMe) return;
 
-        // === COMMAND HANDLER (sebelum filter grup) ===
+        // === COMMAND HANDLER ===
         const isCommand = text.trim().startsWith('/');
         
         if (isCommand) {
@@ -310,36 +373,12 @@ const connect = async () => {
                 return;
             }
 
-            // === CEK OWNER (ambil jid dan lid) ===
-            let isOwner = false;
-            
-            // cek nomor langsung dulu
-            if (senderNumber === config.OWNER_NUMBER) {
-                isOwner = true;
-            } else {
-                // kalo di grup, cek pake lid juga
-                try {
-                    const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
-                    const [ownerInfo] = await sock.onWhatsApp(ownerJid);
-                    
-                    if (ownerInfo && ownerInfo.exists) {
-                        const ownerLid = ownerInfo.lid;
-                        
-                        // cek sender dengan jid atau lid owner
-                        if (sender === ownerJid || sender === ownerLid) {
-                            isOwner = true;
-                        }
-                    }
-                } catch (e) {
-                    console.log(colors.red(`   Error checking owner: ${e.message}`));
-                }
-            }
+            // === CEK OWNER PAKE HELPER ===
+            const userIsOwner = isOwner(sender, senderNumber);
 
             // /leave - owner only, group only
             if (command === '/leave') {
-                if (!isOwner) {
-                    return;
-                }
+                if (!userIsOwner) return;
 
                 if (!isGroup) {
                     await sock.sendMessage(from, { text: 'ini bukan grup bro' });
@@ -364,9 +403,7 @@ const connect = async () => {
 
             // /update - owner only
             if (command === '/update') {
-                if (!isOwner) {
-                    return;
-                }
+                if (!userIsOwner) return;
 
                 console.log(colors.yellow(`\n🔄 /update from owner`));
 
@@ -402,9 +439,7 @@ const connect = async () => {
 
             // /eval - owner only
             if (command === '/eval') {
-                if (!isOwner) {
-                    return;
-                }
+                if (!userIsOwner) return;
 
                 console.log(colors.yellow(`\n⚡ /eval from owner`));
 
@@ -450,52 +485,16 @@ const connect = async () => {
             }
         }
 
-        // === FILTER GRUP (setelah command) ===
+        // === FILTER GRUP ===
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
                 const participants = groupMetadata.participants;
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
-                console.log(colors.gray(`   Owner number to find: ${config.OWNER_NUMBER}`));
-                console.log(colors.gray(`   Total participants: ${participants.length}`));
                 
-                // cek owner: ambil lid owner dulu
-                const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
-                let ownerLid = null;
-                
-                try {
-                    const [ownerInfo] = await sock.onWhatsApp(ownerJid);
-                    if (ownerInfo && ownerInfo.exists) {
-                        ownerLid = ownerInfo.lid;
-                        console.log(colors.gray(`   Owner jid: ${ownerJid}`));
-                        console.log(colors.gray(`   Owner lid: ${ownerLid}`));
-                    }
-                } catch (e) {
-                    console.log(colors.red(`   Error getting owner info: ${e.message}`));
-                }
-                
-                // cek apakah owner ada di participant (cek jid atau lid)
-                const ownerInGroup = participants.some(p => {
-                    const participantId = p.id || '';
-                    console.log(colors.gray(`   Comparing with: ${participantId}`));
-                    
-                    // cek jid
-                    if (participantId === ownerJid) {
-                        console.log(colors.green(`   ✅ Match by JID!`));
-                        return true;
-                    }
-                    
-                    // cek lid
-                    if (ownerLid && participantId === ownerLid) {
-                        console.log(colors.green(`   ✅ Match by LID!`));
-                        return true;
-                    }
-                    
-                    return false;
-                });
-                
-                if (!ownerInGroup) {
+                // === CEK OWNER PAKE HELPER ===
+                if (!isOwnerInGroup(participants)) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
                     setTimeout(() => {
                         sock.groupLeave(from).catch(() => {});
@@ -505,65 +504,20 @@ const connect = async () => {
                 
                 console.log(colors.green(`   ✅ Owner found in group!`));
                 
-                // cek apakah bot di-tag
+                // === CEK BOT MENTION ===
                 const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
-                // ambil lid bot juga
-                let botLid = null;
-                try {
-                    const [botInfo] = await sock.onWhatsApp(botJid);
-                    if (botInfo && botInfo.exists) {
-                        botLid = botInfo.lid;
-                    }
-                } catch (e) {}
-                
-                // cek mention pake jid atau lid
-                const isBotMentioned = mentionedJid.some(jid => {
-                    return jid === botJid || (botLid && jid === botLid);
-                }) || text.includes(`@${botNumber}`);
-                
-                if (!isBotMentioned) {
-                    // gak di-tag, abaikan
+                if (!isBotMentioned(mentionedJid, text, botJid, botNumber)) {
                     return;
                 }
                 
                 console.log(colors.cyan(`\n👥 Group message from ${senderNumber} in ${groupMetadata.subject}`));
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
-                // hapus mention bot dari teks
-                const botMention = `@${botNumber}`;
-                text = text.replace(new RegExp(botMention, 'g'), '').trim();
-                
-                // replace mention user lain dengan nama mereka
-                if (mentionedJid.length > 0) {
-                    for (const jid of mentionedJid) {
-                        // skip bot mention (cek jid atau lid)
-                        if (jid === botJid || (botLid && jid === botLid)) continue;
-                        
-                        const mentionNumber = jid.split('@')[0];
-                        
-                        // cari participant
-                        const participant = participants.find(p => p.id === jid);
-                        
-                        let name = mentionNumber;
-                        try {
-                            // coba ambil nama dari kontak
-                            if (participant) {
-                                const contactName = participant.notify || participant.name;
-                                if (contactName) {
-                                    name = contactName;
-                                }
-                            }
-                        } catch (e) {
-                            // fallback ke nomor
-                        }
-                        
-                        // replace @nomor dengan nama
-                        text = text.replace(new RegExp(`@${mentionNumber}`, 'g'), name);
-                    }
-                }
+                // === BERSIHKAN TEXT PAKE HELPER ===
+                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, participants);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
                 
@@ -578,14 +532,14 @@ const connect = async () => {
         
         if (!text && !hasMedia) return;
 
-        // delay sebelum baca pesan (1-3 detik) - biar keliatan natural
+        // delay sebelum baca pesan (1-3 detik)
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
         await randomDelay(minRead, maxRead);
         console.log(colors.gray(`   ⏱️  Waited ${Math.floor((Date.now() - m.messageTimestamp * 1000) / 1000)}s before reading`));
 
         await sock.readMessages([m.key]);
 
-        // === DELAY SETELAH BACA SEBELUM NGETIK ===
+        // delay setelah baca sebelum ngetik
         const [minThink, maxThink] = config.DELAY_BEFORE_TYPING || [2000, 5000];
         const thinkDelay = Math.floor(Math.random() * (maxThink - minThink + 1)) + minThink;
         await new Promise(resolve => setTimeout(resolve, thinkDelay));
@@ -677,7 +631,7 @@ const connect = async () => {
                     ''
                 );
 
-                // kalo dari grup, udah dibersihkan di atas (text variable)
+                // kalo dari grup, udah dibersihkan di atas
                 if (isGroup) {
                     msgText = text;
                 }
@@ -936,7 +890,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 saveSessions();
             }
 
-            // === KIRIM PESAN BOT DAN SIMPAN KEY-NYA ===
+            // kirim pesan bot dan simpan key-nya
             const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
             console.log(colors.green(`   📤 Response sent to ${senderNumber}`));
 
@@ -945,7 +899,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             if (parsed.isPlugin && plugins.has(parsed.type)) {
                 console.log(colors.blue(`   🔌 Executing plugin: ${parsed.type}`));
                 
-                // === REACT DI PESAN BOT, BUKAN USER ===
+                // react di pesan bot
                 await sock.sendMessage(from, {
                     react: {
                         text: '⏳',
