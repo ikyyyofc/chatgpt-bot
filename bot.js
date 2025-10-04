@@ -292,6 +292,9 @@ function cleanTextFromMentions(text, mentionedJid, botJid, botNumber, participan
 // tracking bot LID (diambil pas bot pertama send message di grup)
 let botLidCache = null;
 
+// cache nama user per JID/LID (diambil dari pushName pas mereka send message)
+const userNameCache = new Map();
+
 const connect = async () => {
     await loadPlugins();
     loadSessions();
@@ -371,6 +374,17 @@ const connect = async () => {
         // === GUNAKAN HELPER FUNCTION ===
         const sender = getSender(m, isGroup, from);
         const senderNumber = sender.split('@')[0];
+        
+        // cache nama user dari pushName
+        if (m.pushName) {
+            // cache pake sender sebagai key (bisa JID atau LID)
+            userNameCache.set(sender, m.pushName);
+            
+            // kalo di grup, cache juga pake nomor aja (buat mapping)
+            if (isGroup) {
+                userNameCache.set(senderNumber, m.pushName);
+            }
+        }
         
         let text = (
             m.message?.conversation ||
