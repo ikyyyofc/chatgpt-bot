@@ -1,4 +1,4 @@
-// typing indicator terus menerus sampe selesai// bot.js
+// bot.js
 import './config.js';
 import makeWASocket, { 
     useMultiFileAuthState,
@@ -170,6 +170,7 @@ function calculateTypingTime(text) {
     // min 2 detik, max 10 detik
     return Math.min(Math.max(timeMs, 2000), 10000);
 }
+
 async function setPresence(sock, status) {
     try {
         await sock.sendPresenceUpdate(status);
@@ -358,6 +359,12 @@ const connect = async () => {
         console.log(colors.gray(`   ⏱️  Waited ${Math.floor((Date.now() - m.messageTimestamp * 1000) / 1000)}s before reading`));
 
         await sock.readMessages([m.key]);
+
+        // === DELAY SETELAH BACA SEBELUM NGETIK ===
+        const [minThink, maxThink] = config.DELAY_BEFORE_TYPING || [2000, 5000];
+        const thinkDelay = Math.floor(Math.random() * (maxThink - minThink + 1)) + minThink;
+        await new Promise(resolve => setTimeout(resolve, thinkDelay));
+        console.log(colors.gray(`   💭 Thinking for ${thinkDelay / 1000}s before typing...`));
 
         if (!isOnline) {
             console.log(colors.yellow(`\n🌐 Bot is offline, going online for ${senderNumber}...`));
@@ -639,7 +646,8 @@ PENTING:
 
             saveSessions();
 
-            await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
+            // === KIRIM PESAN BOT DAN SIMPAN KEY-NYA ===
+            const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
             console.log(colors.green(`   📤 Response sent to ${senderNumber}`));
 
             clearInterval(typingInterval);
@@ -647,10 +655,11 @@ PENTING:
             if (parsed.isPlugin && plugins.has(parsed.type)) {
                 console.log(colors.blue(`   🔌 Executing plugin: ${parsed.type}`));
                 
+                // === REACT DI PESAN BOT, BUKAN USER ===
                 await sock.sendMessage(from, {
                     react: {
                         text: '⏳',
-                        key: m.key
+                        key: botMessage.key
                     }
                 });
                 
@@ -668,7 +677,7 @@ PENTING:
                     await sock.sendMessage(from, {
                         react: {
                             text: '✅',
-                            key: m.key
+                            key: botMessage.key
                         }
                     });
 
@@ -679,7 +688,7 @@ PENTING:
                     await sock.sendMessage(from, {
                         react: {
                             text: '❌',
-                            key: m.key
+                            key: botMessage.key
                         }
                     });
                     
