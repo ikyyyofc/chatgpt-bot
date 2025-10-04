@@ -533,7 +533,13 @@ const connect = async () => {
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
+                console.log(colors.gray(`   Bot JID: ${botJid}`));
+                console.log(colors.gray(`   Bot Number: ${botNumber}`));
+                console.log(colors.gray(`   Mentioned JIDs: ${mentionedJid.join(', ')}`));
+                console.log(colors.gray(`   Text contains @${botNumber}: ${text.includes(`@${botNumber}`)}`));
+                
                 if (!isBotMentioned(mentionedJid, text, botJid, botNumber)) {
+                    console.log(colors.yellow(`   ⚠️  Bot not mentioned, ignoring message`));
                     return;
                 }
                 
@@ -544,6 +550,11 @@ const connect = async () => {
                 text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, participants);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
+                
+                if (!text.trim()) {
+                    console.log(colors.yellow(`   ⚠️  Text empty after cleaning, ignoring`));
+                    return;
+                }
                 
             } catch (error) {
                 console.error(colors.red('Error checking group:'), error.message);
