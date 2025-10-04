@@ -1,4 +1,4 @@
-// bot.js
+// typing indicator terus menerus sampe selesai// bot.js
 import './config.js';
 import makeWASocket, { 
     useMultiFileAuthState,
