@@ -153,9 +153,6 @@ let lastActivityTime = Date.now();
 let isOnline = true;
 let offlineTimer = null;
 
-// cache participant jid per group
-const groupParticipantCache = new Map();
-
 // config auto offline (dalam milidetik)
 const AUTO_OFFLINE_DELAY = config.AUTO_OFFLINE_MINUTES * 60 * 1000;
 const ONLINE_DELAY = config.ONLINE_DELAY_SECONDS * 1000;
@@ -254,7 +251,6 @@ const connect = async () => {
                 isReady = false;
                 botStartTime = null;
                 isOnline = false;
-                groupParticipantCache.clear();
                 
                 if (offlineTimer) {
                     clearTimeout(offlineTimer);
@@ -265,24 +261,6 @@ const connect = async () => {
             } else {
                 console.log(colors.red('Logged out!'));
             }
-        }
-    });
-
-    // listen grup updates buat refresh cache
-    sock.ev.on('groups.update', async updates => {
-        for (const update of updates) {
-            if (groupParticipantCache.has(update.id)) {
-                console.log(colors.yellow(`🔄 Group ${update.id} updated, clearing cache...`));
-                groupParticipantCache.delete(update.id);
-            }
-        }
-    });
-
-    sock.ev.on('group-participants.update', async update => {
-        const { id, participants, action } = update;
-        if (groupParticipantCache.has(id)) {
-            console.log(colors.yellow(`🔄 Participants ${action} in ${id}, clearing cache...`));
-            groupParticipantCache.delete(id);
         }
     });
 
@@ -313,43 +291,43 @@ const connect = async () => {
                 const participants = groupMetadata.participants;
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
+                console.log(colors.gray(`   Owner number to find: ${config.OWNER_NUMBER}`));
+                console.log(colors.gray(`   Total participants: ${participants.length}`));
                 
-                // cek cache dulu
-                let participantJids = groupParticipantCache.get(from);
+                // cek owner: ambil lid owner dulu
+                const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
+                let ownerLid = null;
                 
-                if (!participantJids) {
-                    console.log(colors.gray(`   📦 Building participant cache...`));
-                    participantJids = [];
-                    
-                    for (const p of participants) {
-                        try {
-                            let jid = p.id;
-                            if (jid && jid.includes('@lid')) {
-                                const converted = await sock.signalRepository?.lidMapping?.getPNForLID(jid);
-                                if (converted) {
-                                    jid = converted;
-                                }
-                            }
-                            if (jid) {
-                                participantJids.push(jid);
-                            }
-                        } catch (e) {
-                            // kalo gagal convert, skip aja
-                            if (p.id && !p.id.includes('@lid')) {
-                                participantJids.push(p.id);
-                            }
-                        }
+                try {
+                    const [ownerInfo] = await sock.onWhatsApp(ownerJid);
+                    if (ownerInfo && ownerInfo.exists) {
+                        ownerLid = ownerInfo.lid;
+                        console.log(colors.gray(`   Owner jid: ${ownerJid}`));
+                        console.log(colors.gray(`   Owner lid: ${ownerLid}`));
                     }
-                    
-                    groupParticipantCache.set(from, participantJids);
-                    console.log(colors.green(`   ✅ Cached ${participantJids.length} participants`));
-                } else {
-                    console.log(colors.green(`   📦 Using cached participants (${participantJids.length})`));
+                } catch (e) {
+                    console.log(colors.red(`   Error getting owner info: ${e.message}`));
                 }
                 
-                // cek owner
-                const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
-                const ownerInGroup = participantJids.includes(ownerJid);
+                // cek apakah owner ada di participant (cek jid atau lid)
+                const ownerInGroup = participants.some(p => {
+                    const participantId = p.id || '';
+                    console.log(colors.gray(`   Comparing with: ${participantId}`));
+                    
+                    // cek jid
+                    if (participantId === ownerJid) {
+                        console.log(colors.green(`   ✅ Match by JID!`));
+                        return true;
+                    }
+                    
+                    // cek lid
+                    if (ownerLid && participantId === ownerLid) {
+                        console.log(colors.green(`   ✅ Match by LID!`));
+                        return true;
+                    }
+                    
+                    return false;
+                });
                 
                 if (!ownerInGroup) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
@@ -362,49 +340,26 @@ const connect = async () => {
                 console.log(colors.green(`   ✅ Owner found in group!`));
                 
                 // cek apakah bot di-tag
-                let mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
-                // convert mention lid ke jid
-                const convertedMentions = [];
-                for (const jid of mentionedJid) {
-                    try {
-                        let convertedJid = jid;
-                        if (jid && jid.includes('@lid')) {
-                            const converted = await sock.signalRepository?.lidMapping?.getPNForLID(jid);
-                            if (converted) {
-                                convertedJid = converted;
-                            }
-                        }
-                        convertedMentions.push(convertedJid);
-                    } catch (e) {
-                        convertedMentions.push(jid);
+                // ambil lid bot juga
+                let botLid = null;
+                try {
+                    const [botInfo] = await sock.onWhatsApp(botJid);
+                    if (botInfo && botInfo.exists) {
+                        botLid = botInfo.lid;
                     }
-                }
-                mentionedJid = convertedMentions;
+                } catch (e) {}
                 
-                // cek mention bot
-                const isBotMentioned = mentionedJid.includes(botJid) || text.includes(`@${botNumber}`);
+                // cek mention pake jid atau lid
+                const isBotMentioned = mentionedJid.some(jid => {
+                    return jid === botJid || (botLid && jid === botLid);
+                }) || text.includes(`@${botNumber}`);
                 
                 if (!isBotMentioned) {
-                    return;
-                }
-                
-                // handle /leave command untuk owner
-                if (text.trim() === '/leave') {
-                    if (senderNumber !== config.OWNER_NUMBER) {
-                        console.log(colors.yellow(`   ⚠️  /leave rejected: not owner`));
-                        return;
-                    }
-                    
-                    console.log(colors.yellow(`\n👋 /leave from owner in ${groupMetadata.subject}`));
-                    await sock.sendMessage(from, { text: 'oke bye bye 👋' });
-                    
-                    setTimeout(() => {
-                        sock.groupLeave(from).catch(() => {});
-                        groupParticipantCache.delete(from);
-                    }, 2000);
+                    // gak di-tag, abaikan
                     return;
                 }
                 
@@ -418,39 +373,28 @@ const connect = async () => {
                 // replace mention user lain dengan nama mereka
                 if (mentionedJid.length > 0) {
                     for (const jid of mentionedJid) {
-                        if (jid === botJid) continue;
+                        // skip bot mention (cek jid atau lid)
+                        if (jid === botJid || (botLid && jid === botLid)) continue;
                         
                         const mentionNumber = jid.split('@')[0];
                         
-                        // cari participant by jid
-                        let participant = null;
-                        for (const p of participants) {
-                            let pJid = p.id;
-                            try {
-                                if (pJid && pJid.includes('@lid')) {
-                                    const converted = await sock.signalRepository?.lidMapping?.getPNForLID(pJid);
-                                    if (converted) {
-                                        pJid = converted;
-                                    }
-                                }
-                            } catch (e) {}
-                            
-                            if (pJid === jid) {
-                                participant = p;
-                                break;
-                            }
-                        }
+                        // cari participant
+                        const participant = participants.find(p => p.id === jid);
                         
                         let name = mentionNumber;
                         try {
+                            // coba ambil nama dari kontak
                             if (participant) {
                                 const contactName = participant.notify || participant.name;
                                 if (contactName) {
                                     name = contactName;
                                 }
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            // fallback ke nomor
+                        }
                         
+                        // replace @nomor dengan nama
                         text = text.replace(new RegExp(`@${mentionNumber}`, 'g'), name);
                     }
                 }
