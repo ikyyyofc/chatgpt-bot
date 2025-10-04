@@ -292,27 +292,51 @@ const connect = async () => {
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
                 console.log(colors.gray(`   Owner number to find: ${config.OWNER_NUMBER}`));
-                
-                // debug: log semua participant
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
-                participants.forEach((p, i) => {
-                    const pId = p.id || '';
-                    const pLid = p.lid || '';
-                    console.log(colors.gray(`   [${i}] id: ${pId}, lid: ${pLid}`));
-                });
                 
-                // cek owner dengan berbagai kemungkinan format
-                const ownerInGroup = participants.some(p => {
+                // cek owner dengan cara cek jid real dari lid
+                let ownerInGroup = false;
+                
+                for (const p of participants) {
                     const participantId = p.id || '';
-                    const participantLid = p.lid || '';
                     
-                    // coba berbagai format
-                    const idNumber = participantId.split('@')[0].replace(/[^0-9]/g, '');
-                    const lidNumber = participantLid.split('@')[0].replace(/[^0-9]/g, '');
-                    const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
-                    
-                    return idNumber === ownerClean || lidNumber === ownerClean;
-                });
+                    // kalo formatnya @lid, cek jid real-nya
+                    if (participantId.includes('@lid')) {
+                        try {
+                            const [result] = await sock.onWhatsApp(participantId);
+                            if (result && result.jid) {
+                                const realNumber = result.jid.split('@')[0].replace(/[^0-9]/g, '');
+                                const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
+                                
+                                console.log(colors.gray(`   Checking lid: ${participantId} -> real: ${realNumber}`));
+                                
+                                if (realNumber === ownerClean) {
+                                    ownerInGroup = true;
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            // fallback ke cek langsung dari id
+                            const idNumber = participantId.split('@')[0].replace(/[^0-9]/g, '');
+                            const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
+                            if (idNumber === ownerClean) {
+                                ownerInGroup = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        // format biasa @s.whatsapp.net
+                        const idNumber = participantId.split('@')[0].replace(/[^0-9]/g, '');
+                        const ownerClean = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
+                        
+                        console.log(colors.gray(`   Checking jid: ${participantId} -> ${idNumber}`));
+                        
+                        if (idNumber === ownerClean) {
+                            ownerInGroup = true;
+                            break;
+                        }
+                    }
+                }
                 
                 if (!ownerInGroup) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
@@ -330,8 +354,10 @@ const connect = async () => {
                 const botNumber = sock.user.id.split(':')[0];
                 
                 // cek mention pake jid atau cek di text pake @nomor
-                const isBotMentioned = mentionedJid.includes(botJid) || 
-                                      text.includes(`@${botNumber}`);
+                const isBotMentioned = mentionedJid.some(jid => {
+                    const jidNumber = jid.split('@')[0].replace(/[^0-9]/g, '');
+                    return jidNumber === botNumber;
+                }) || text.includes(`@${botNumber}`);
                 
                 if (!isBotMentioned) {
                     // gak di-tag, abaikan
@@ -348,14 +374,32 @@ const connect = async () => {
                 // replace mention user lain dengan nama mereka
                 if (mentionedJid.length > 0) {
                     for (const jid of mentionedJid) {
-                        if (jid === botJid) continue; // skip bot mention
+                        const jidNumber = jid.split('@')[0].replace(/[^0-9]/g, '');
+                        if (jidNumber === botNumber) continue; // skip bot mention
                         
                         const mentionNumber = jid.split('@')[0];
                         
                         // cari participant pake jid atau lid
-                        const participant = participants.find(p => 
-                            p.id === jid || p.lid === jid
-                        );
+                        let participant = null;
+                        
+                        // kalo mention pake @lid, cari real jid dulu
+                        if (jid.includes('@lid')) {
+                            try {
+                                const [result] = await sock.onWhatsApp(jid);
+                                if (result && result.jid) {
+                                    participant = participants.find(p => {
+                                        if (p.id.includes('@lid')) {
+                                            return p.id === jid;
+                                        }
+                                        return p.id === result.jid;
+                                    });
+                                }
+                            } catch (e) {}
+                        }
+                        
+                        if (!participant) {
+                            participant = participants.find(p => p.id === jid);
+                        }
                         
                         let name = mentionNumber;
                         try {
