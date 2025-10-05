@@ -24,7 +24,7 @@ export default {
             
             await sock.sendMessage(from, {
                 image: { url: imageUrl },
-                caption: `✨ Generated!\n\n📝 Prompt: ${input}\n🤖 Mode: ${mode}`
+                caption: `✨ Generated!\n\n📝 Prompt: ${input}`
             }, { quoted: message });
 
             console.log(`   📤 Generated image sent to ${sender}`);
