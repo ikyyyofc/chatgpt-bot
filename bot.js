@@ -433,7 +433,7 @@ const connect = async () => {
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
                 
-                updateParticipantStore(from, participants, sock);
+                updateParticipantStore(from, participants);
                 
                 // update pushName dari sender message ini
                 if (m.pushName && sender) {
