@@ -34,7 +34,7 @@ import {
 
 const config = await import("./config.js").then(m => m.default);
 const chatAI = await import("./gemini.js").then(m => m.default);
-
+const PAIRING_NUMBER = config.PAIRING_NUMBER;
 global.lastMessage = null;
 
 const plugins = new Map();
