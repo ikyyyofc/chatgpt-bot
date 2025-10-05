@@ -39,7 +39,6 @@ export default {
 
         } catch (error) {
             console.error(`   ❌ EditFoto plugin error:`, error.message);
-            await sock.sendMessage(from, { text: 'error nih... coba lagi dengan prompt yang lebih jelas' });
             return false;
         }
     }
