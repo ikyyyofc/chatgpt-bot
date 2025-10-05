@@ -12,51 +12,8 @@ export default {
             }
 
             console.log(`   🎨 Generating image with prompt: ${input}`);
-
-            console.log(`   🚀 Calling AI API with retry...`);
-
-            let imageUrl = null;
-            let mode = null;
-            const maxRetries = 20;
-
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    console.log(`   🔄 Attempt ${attempt}/${maxRetries}...`);
-
-                    const response = await axios.get(
-                        `https://wudysoft.xyz/api/ai/nano-banana/v12?prompt=${encodeURIComponent(input)}`,
-                        { timeout: 30000 }
-                    );
-
-                    if (response.data.error) {
-                        console.log(`   ⚠️  API Error: ${response.data.error}`);
-                        continue;
-                    }
-
-                    if (response.data && response.data.result) {
-                        imageUrl = response.data.result;
-                        mode = response.data.mode || 'text-to-image';
-                        console.log(`   ✅ Success on attempt ${attempt}`);
-                        break;
-                    }
-
-                } catch (error) {
-                    console.log(`   ⚠️  Attempt ${attempt} failed: ${error.message}`);
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-
-            if (!imageUrl) {
-                console.log(`   ❌ All ${maxRetries} attempts failed`);
-                await sock.sendMessage(from, { 
-                    text: `❌ Gagal generate gambar setelah ${maxRetries}x percobaan...\nAPI lagi bermasalah, coba lagi nanti ya` 
-                }, { quoted: message });
-                return false;
-            }
-
-            console.log(`   ✅ Image generated (${mode})`);
-
+            
+            let result = (await axios.get(`https://wudysoft.xyz/api/ai/nano-banana/v17?prompt=${input}`)).data
             await sock.sendMessage(from, {
                 image: { url: imageUrl },
                 caption: `✨ Generated!\n\n📝 Prompt: ${input}\n🤖 Mode: ${mode}`
