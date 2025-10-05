@@ -204,22 +204,28 @@ const connect = async () => {
         }
     });
 
-    // pairing logic yang lebih clean
-    if (!sock.authState.creds.registered) {
-        setTimeout(async () => {
-            try {
-                const code = await sock.requestPairingCode(PAIRING_NUMBER);
-                console.log(colors.yellow("Pairing Code: " + code));
-            } catch (err) {
-                console.error(colors.red("Failed to get pairing code:"), err);
-            }
-        }, 3000);
-    }
-
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("connection.update", async update => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+
+        // request pairing code pas connecting atau ada qr
+        if (
+            (connection === "connecting" || qr) &&
+            !sock.authState.creds.registered
+        ) {
+            try {
+                const code = await sock.requestPairingCode(
+                    config.PAIRING_NUMBER
+                );
+                console.log(colors.yellow("Pairing Code: " + code));
+            } catch (err) {
+                console.error(
+                    colors.red("Failed to get pairing code:"),
+                    err.message
+                );
+            }
+        }
 
         if (connection === "open") {
             console.log(
