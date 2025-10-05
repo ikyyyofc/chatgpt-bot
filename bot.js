@@ -19,6 +19,16 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// import helpers
+import { 
+    getParticipantName,
+    getSender,
+    isOwner,
+    isOwnerInGroup,
+    isBotMentioned,
+    cleanTextFromMentions
+} from './lib/helpers.js';
+
 // dynamic import config dan gemini
 const config = await import('./config.js').then(m => m.default);
 const chatAI = await import('./gemini.js').then(m => m.default);
@@ -167,7 +177,6 @@ function randomDelay(min, max) {
 function calculateTypingTime(text) {
     const chars = text.length;
     const timeMs = (chars / config.TYPING_SPEED) * 1000;
-    // min 2 detik, max 10 detik
     return Math.min(Math.max(timeMs, 2000), 10000);
 }
 
@@ -193,129 +202,6 @@ function resetOfflineTimer(sock) {
             setPresence(sock, 'unavailable');
         }
     }, AUTO_OFFLINE_DELAY);
-}
-
-// === HELPER: Ambil sender yang bener ===
-function getSender(m, isGroup, from) {
-    if (m.key.fromMe) {
-        return m.key.remoteJid.split('@')[0] + '@s.whatsapp.net';
-    }
-    
-    if (isGroup) {
-        // di grup: prioritas participantPn (JID), fallback ke participant (LID)
-        return m.key.participantPn || m.key.participant;
-    }
-    
-    // di private chat: from udah JID yang bener
-    // senderLid ga dipake karena from udah format @s.whatsapp.net
-    return from;
-}
-
-// === HELPER: Cek apakah user adalah owner ===
-function isOwner(sender, senderNumber) {
-    const ownerJid = config.OWNER_NUMBER + '@s.whatsapp.net';
-    return sender === ownerJid || senderNumber === config.OWNER_NUMBER;
-}
-
-// === HELPER: Cek apakah owner ada di grup ===
-async function isOwnerInGroup(sock, participants) {
-    const ownerNumber = config.OWNER_NUMBER;
-    const ownerJid = ownerNumber + '@s.whatsapp.net';
-    
-    return participants.some(p => {
-        // cek dari field jid (JID asli)
-        if (p.jid === ownerJid) return true;
-        
-        // cek dari field id (bisa LID atau JID)
-        if (p.id === ownerJid) return true;
-        
-        // cek nomor aja dari field manapun
-        const idNumber = p.id?.split('@')[0];
-        const jidNumber = p.jid?.split('@')[0];
-        
-        return idNumber === ownerNumber || jidNumber === ownerNumber;
-    });
-}
-
-// === HELPER: Cek apakah bot di-mention ===
-function isBotMentioned(mentionedJid, text, botJid, botNumber, botLid = null) {
-    // cek mention pake JID
-    if (mentionedJid.includes(botJid)) return true;
-    
-    // cek mention pake LID (kalo ada)
-    if (botLid) {
-        // strip device number dari bot LID (contoh: 90392536080585:2@lid -> 90392536080585@lid)
-        const botLidWithoutDevice = botLid.replace(/:\d+@/, '@');
-        
-        for (const jid of mentionedJid) {
-            // strip device number dari mentioned jid juga
-            const mentionedWithoutDevice = jid.replace(/:\d+@/, '@');
-            
-            if (mentionedWithoutDevice === botLidWithoutDevice) return true;
-        }
-    }
-    
-    // cek text contain @nomor
-    if (text.includes(`@${botNumber}`)) return true;
-    
-    return false;
-}
-
-// === HELPER: Bersihkan text dari mention dan replace dengan nama ===
-function cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLid, participants) {
-    // hapus mention bot dari text
-    // bot bisa di-mention dalam beberapa format:
-    // 1. @6288707077228 (nomor)
-    // 2. @90392536080585 (LID tanpa @lid)
-    
-    // hapus mention pake nomor bot
-    text = text.replace(new RegExp(`@${botNumber}\\b`, 'g'), '').trim();
-    
-    // hapus mention pake LID bot (extract nomor dari LID)
-    if (botLid) {
-        const botLidNumber = botLid.split(':')[0]; // ambil angka sebelum :
-        text = text.replace(new RegExp(`@${botLidNumber}\\b`, 'g'), '').trim();
-    }
-    
-    // replace mention user lain dengan nama
-    for (const mentionJid of mentionedJid) {
-        // skip bot
-        if (mentionJid === botJid) continue;
-        if (botLid && mentionJid.replace(/:\d+@/, '@') === botLid.replace(/:\d+@/, '@')) continue;
-        
-        // cari participant yang match
-        let participant = null;
-        
-        // kalo mentionJid adalah LID format
-        if (mentionJid.includes('@lid')) {
-            const lidNumber = mentionJid.split(':')[0].split('@')[0];
-            participant = participants.find(p => {
-                const pLidNumber = p.lid?.split(':')[0].split('@')[0];
-                return pLidNumber === lidNumber;
-            });
-        } else {
-            // kalo JID format
-            participant = participants.find(p => p.jid === mentionJid);
-        }
-        
-        // ambil nama atau nomor
-        let name = mentionJid.split('@')[0].split(':')[0]; // fallback: nomor dari mention
-        
-        if (participant) {
-            // prioritas: notify > jid number
-            if (participant.notify) {
-                name = participant.notify;
-            } else if (participant.jid) {
-                name = participant.jid.split('@')[0];
-            }
-        }
-        
-        // replace @nomor atau @lid dengan nama
-        const mentionNumber = mentionJid.split('@')[0].split(':')[0];
-        text = text.replace(new RegExp(`@${mentionNumber}\\b`, 'g'), name);
-    }
-    
-    return text.trim();
 }
 
 // tracking bot LID (diambil pas bot pertama send message di grup)
@@ -397,7 +283,7 @@ const connect = async () => {
         const from = m.key.remoteJid;
         const isGroup = from.endsWith('@g.us');
         
-        // === GUNAKAN HELPER FUNCTION ===
+        // gunakan helper function
         const sender = getSender(m, isGroup, from);
         const senderNumber = sender.split('@')[0];
         
@@ -412,7 +298,7 @@ const connect = async () => {
 
         if (m.key.fromMe) return;
 
-        // === COMMAND HANDLER ===
+        // COMMAND HANDLER
         const isCommand = text.trim().startsWith('/');
         
         if (isCommand) {
@@ -438,8 +324,8 @@ const connect = async () => {
                 return;
             }
 
-            // === CEK OWNER PAKE HELPER ===
-            const userIsOwner = isOwner(sender, senderNumber);
+            // cek owner pake helper
+            const userIsOwner = isOwner(sender, senderNumber, config.OWNER_NUMBER);
 
             // /leave - owner only, group only
             if (command === '/leave') {
@@ -550,7 +436,7 @@ const connect = async () => {
             }
         }
 
-        // === FILTER GRUP ===
+        // FILTER GRUP
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
@@ -560,16 +446,8 @@ const connect = async () => {
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
                 console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
                 
-                // debug: print beberapa participant untuk liat formatnya
-                if (participants.length > 0) {
-                    console.log(colors.gray(`   Sample participant IDs:`));
-                    participants.slice(0, 3).forEach(p => {
-                        console.log(colors.gray(`     - ${p.id}`));
-                    });
-                }
-                
-                // === CEK OWNER PAKE HELPER ===
-                if (!await isOwnerInGroup(sock, participants)) {
+                // cek owner pake helper
+                if (!isOwnerInGroup(participants, config.OWNER_NUMBER)) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
                     setTimeout(() => {
                         sock.groupLeave(from).catch(() => {});
@@ -579,12 +457,11 @@ const connect = async () => {
                 
                 console.log(colors.green(`   ✅ Owner found in group!`));
                 
-                // === CEK BOT MENTION ===
+                // cek bot mention
                 const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
-                // coba ambil bot LID dari sock.user (kalo ada)
                 if (!botLidCache && sock.user.lid) {
                     botLidCache = sock.user.lid;
                     console.log(colors.green(`   🔑 Bot LID cached: ${botLidCache}`));
@@ -594,8 +471,8 @@ const connect = async () => {
                 console.log(colors.gray(`   Bot LID: ${botLidCache || 'not found yet'}`));
                 console.log(colors.gray(`   Bot Number: ${botNumber}`));
                 console.log(colors.gray(`   Mentioned JIDs: ${mentionedJid.join(', ')}`));
-                console.log(colors.gray(`   Text contains @${botNumber}: ${text.includes(`@${botNumber}`)}`));
                 
+                // pake helper isBotMentioned
                 if (!isBotMentioned(mentionedJid, text, botJid, botNumber, botLidCache)) {
                     console.log(colors.yellow(`   ⚠️  Bot not mentioned, ignoring message`));
                     return;
@@ -604,7 +481,7 @@ const connect = async () => {
                 console.log(colors.cyan(`\n👥 Group message from ${senderNumber} in ${groupMetadata.subject}`));
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
-                // === BERSIHKAN TEXT PAKE HELPER ===
+                // bersihkan text pake helper (udah support nama sekarang!)
                 text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, participants);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
