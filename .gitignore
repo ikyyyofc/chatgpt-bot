@@ -1,5 +1,8 @@
-# Folder yang diabaikan
+# Folder yang diabaikan (kecuali pengecualian di dalamnya)
 node_modules/
+session/
+
+# Pengecualian di dalam folder session/
 !session/creds.json
 
 # File yang diabaikan
