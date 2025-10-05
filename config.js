@@ -1,7 +1,10 @@
 // config.js
 export default {
+   // folder session
+   SESSION: "session",
+  // nomor bot yang akan dipasangkan pairing
+    PAIRING_NUMBER: "6288707077228",
     // nomor owner (tanpa @s.whatsapp.net, contoh: 628123456789)
-    PAIRING_NUMBER: "6288707077319",
     OWNER_NUMBER: '6287866255637', // ganti dengan nomor lu
     
     // system prompt buat ngatur behavior bot
