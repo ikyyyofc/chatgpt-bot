@@ -1,6 +1,5 @@
 # Folder yang diabaikan
 node_modules/
-session/
 !session/creds.json
 
 # File yang diabaikan
