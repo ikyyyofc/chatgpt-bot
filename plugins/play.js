@@ -69,7 +69,6 @@ export default {
 
         } catch (error) {
             console.error(`   ❌ Play plugin error:`, error.message);
-            await sock.sendMessage(from, { text: 'error sih... coba lagi nanti' });
             return false;
         }
     }
