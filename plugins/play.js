@@ -19,7 +19,7 @@ export default {
             let f = anu.all.filter(v => !v.url.includes("@"));
             
             if (!f.length) {
-                await sock.sendMessage(from, { text: 'ga nemu lagu nya nih...' });
+                console.error("Song Not Found...")
                 return false;
             }
 
