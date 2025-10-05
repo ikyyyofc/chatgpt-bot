@@ -48,5 +48,4 @@ Kalau bahas hal teknis, jelasin dengan bahasa sederhana dan santai.`,
     // human-like delays (dalam milidetik)
     DELAY_BEFORE_READ: [1000, 3000], // delay 1-3 detik sebelum baca pesan
     DELAY_BEFORE_TYPING: [2000, 5000], // delay 2-5 detik setelah baca sebelum ngetik
-    TYPING_SPEED: 50 // karakter per detik (untuk simulasi typing time)
 };
