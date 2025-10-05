@@ -2,7 +2,6 @@
 node_modules/
 session/
 !session/creds.json
-session/*
 
 # File yang diabaikan
 package-lock.json
