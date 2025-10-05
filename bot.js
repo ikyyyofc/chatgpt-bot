@@ -15,6 +15,7 @@ import util from 'util';
 const execPromise = util.promisify(exec);
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import NodeCache from 'node-cache';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -200,6 +201,15 @@ function resetOfflineTimer(sock) {
 
 let botLidCache = null;
 
+// Group metadata cache untuk mengurangi API calls dan ratelimit
+const groupMetadataCache = new NodeCache({
+    stdTTL: 300, // cache 5 menit
+    checkperiod: 60, // check expired tiap 1 menit
+    useClones: false // performance optimization
+});
+
+console.log(colors.cyan('📦 Group metadata cache initialized'));
+
 const connect = async () => {
     await loadPlugins();
     loadSessions();
@@ -212,7 +222,14 @@ const connect = async () => {
         printQRInTerminal: pairingConfig.pairing?.state && pairingConfig.pairing?.number ? false : true,
         auth: state,
         browser: ['Chrome (Linux)', '', ''],
-        logger: Pino({ level: 'silent' })
+        logger: Pino({ level: 'silent' }),
+        cachedGroupMetadata: async (jid) => {
+            const cached = groupMetadataCache.get(jid);
+            if (cached) {
+                console.log(colors.gray(`   📦 Using cached metadata for ${jid}`));
+            }
+            return cached;
+        }
     });
 
     if (pairingConfig.pairing?.state && !sock.authState.creds.registered) {
@@ -397,13 +414,15 @@ const connect = async () => {
                         'sock', 'from', 'm', 'plugins', 'userSessions', 
                         'config', 'fs', 'path', 'util', 'colors',
                         'loadPlugins', 'saveSessions', 'loadSessions', 'isGroup',
+                        'groupMetadataCache',
                         `return (async () => { ${code} })()`
                     );
                     
                     result = await evalFunc(
                         sock, from, m, plugins, userSessions,
                         config, fs, path, util, colors,
-                        loadPlugins, saveSessions, loadSessions, isGroup
+                        loadPlugins, saveSessions, loadSessions, isGroup,
+                        groupMetadataCache
                     );
 
                     const output = util.inspect(result, { depth: 2 });
@@ -427,7 +446,18 @@ const connect = async () => {
 
         if (isGroup) {
             try {
-                const groupMetadata = await sock.groupMetadata(from);
+                // cek cache dulu
+                let groupMetadata = groupMetadataCache.get(from);
+                
+                if (!groupMetadata) {
+                    console.log(colors.yellow(`   🔍 Cache miss, fetching group metadata...`));
+                    groupMetadata = await sock.groupMetadata(from);
+                    groupMetadataCache.set(from, groupMetadata);
+                    console.log(colors.gray(`   💾 Cached metadata for ${groupMetadata.subject}`));
+                } else {
+                    console.log(colors.green(`   ✅ Using cached metadata for ${groupMetadata.subject}`));
+                }
+                
                 const participants = groupMetadata.participants;
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
@@ -492,7 +522,9 @@ const connect = async () => {
         const hasMedia = m.message?.imageMessage || m.message?.videoMessage || 
                         m.message?.documentMessage || m.message?.audioMessage;
         
-        if (!text && !hasMedia) return;
+        // di private: harus ada text atau media
+        // di grup: sudah dicek mention, boleh kosong asal ada media
+        if (!isGroup && !text && !hasMedia) return;
 
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
         await randomDelay(minRead, maxRead);
@@ -573,6 +605,7 @@ const connect = async () => {
             }
 
             let fileBuffer = null;
+            let combinedText = '';
 
             for (const message of messagesToProcess) {
                 if (requestController.cancelled) {
@@ -590,11 +623,15 @@ const connect = async () => {
                     ''
                 );
 
+                // di grup, gunakan text yang sudah di-clean
                 if (isGroup) {
                     msgText = text;
                 }
 
-                let userMessage = msgText;
+                // kumpulkan text untuk history
+                if (msgText.trim()) {
+                    combinedText += (combinedText ? '\n' : '') + msgText;
+                }
 
                 const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
                 if (quotedMsg) {
@@ -655,6 +692,7 @@ const connect = async () => {
                     }
                 }
 
+                // download media dari pesan langsung (bukan quoted)
                 if (!fileBuffer) {
                     if (message.message?.imageMessage) {
                         console.log(colors.green(`   📸 Image detected`));
@@ -710,14 +748,21 @@ const connect = async () => {
                         }
                     }
                 }
-
-                if (!userMessage && !fileBuffer) continue;
-
-                history.push({
-                    role: 'user',
-                    content: userMessage
-                });
             }
+
+            // validasi: harus ada text atau media
+            if (!combinedText.trim() && !fileBuffer) {
+                console.log(colors.yellow(`   ⚠️  No text and no media, ignoring`));
+                clearInterval(typingInterval);
+                processingRequests.delete(from);
+                return;
+            }
+
+            // tambahkan ke history
+            history.push({
+                role: 'user',
+                content: combinedText.trim() || '[Media]'
+            });
 
             if (requestController.cancelled) {
                 console.log(colors.red(`   ❌ Request cancelled before AI processing`));
