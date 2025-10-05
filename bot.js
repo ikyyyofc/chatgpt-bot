@@ -886,7 +886,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 saveSessions();
             }
 
-            const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
+            const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: isGroup ? m : null });
             console.log(colors.green(`   📤 Response sent to ${senderNumber}`));
 
             clearInterval(typingInterval);
