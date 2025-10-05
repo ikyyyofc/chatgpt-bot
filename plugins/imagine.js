@@ -30,7 +30,6 @@ export default {
 
         } catch (error) {
             console.error(`   ❌ Imagine plugin error:`, error.message);
-            await sock.sendMessage(from, { text: 'error nih... coba lagi nanti' });
             return false;
         }
     }
