@@ -206,62 +206,54 @@ const connect = async () => {
 
     sock.ev.on("creds.update", saveCreds);
 
-    sock.ev.on("connection.update", async update => {
-        const { connection, lastDisconnect, qr } = update;
-
-        // request pairing code pas connecting atau ada qr
-        if (
-            (connection === "connecting" || qr) &&
-            !sock.authState.creds.registered
-        ) {
+    sock.ev.on('connection.update', async update => {
+    const { connection, lastDisconnect, qr } = update;
+    
+    // request pairing code pas connecting atau ada qr
+    if ((connection === 'connecting' || qr) && !sock.authState.creds.registered) {
+        setTimeout(async () => {
             try {
-                const code = await sock.requestPairingCode(
-                    config.PAIRING_NUMBER
-                );
-                console.log(colors.yellow("Pairing Code: " + code));
+                const code = await sock.requestPairingCode(config.PAIRING_NUMBER);
+                console.log(colors.yellow('Pairing Code: ' + code));
             } catch (err) {
-                console.error(
-                    colors.red("Failed to get pairing code:"),
-                    err.message
-                );
+                console.error(colors.red('Failed to get pairing code:'), err.message);
             }
-        }
-
-        if (connection === "open") {
-            console.log(
-                colors.green("✅ Connected as ") + colors.cyan(sock.user.name)
-            );
-
-            botStartTime = Date.now();
-
-            await setPresence(sock, "available");
-            resetOfflineTimer(sock);
-
-            setTimeout(() => {
-                isReady = true;
-                console.log(colors.green("✅ Ready\n"));
-            }, 30000);
-        }
-
-        if (connection === "close") {
-            const reason = lastDisconnect?.error?.output?.statusCode;
-            if (reason !== DisconnectReason.loggedOut) {
-                console.log(colors.yellow("🔄 Reconnecting..."));
-                isReady = false;
-                botStartTime = null;
-                isOnline = false;
-
-                if (offlineTimer) {
-                    clearTimeout(offlineTimer);
-                    offlineTimer = null;
-                }
-
-                connect();
-            } else {
-                console.log(colors.red("❌ Logged out"));
+        }, 2000); // delay 2 detik biar event nya keburu jalan
+    }
+    
+    if (connection === 'open') {
+        console.log(colors.green('✅ Connected as ') + colors.cyan(sock.user.name));
+        
+        botStartTime = Date.now();
+        
+        await setPresence(sock, 'available');
+        resetOfflineTimer(sock);
+        
+        setTimeout(() => {
+            isReady = true;
+            console.log(colors.green('✅ Ready\n'));
+        }, 30000);
+    }
+    
+    if (connection === 'close') {
+        const reason = lastDisconnect?.error?.output?.statusCode;
+        if (reason !== DisconnectReason.loggedOut) {
+            console.log(colors.yellow('🔄 Reconnecting...'));
+            isReady = false;
+            botStartTime = null;
+            isOnline = false;
+            
+            if (offlineTimer) {
+                clearTimeout(offlineTimer);
+                offlineTimer = null;
             }
+            
+            connect();
+        } else {
+            console.log(colors.red('❌ Logged out'));
         }
-    });
+    }
+});
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const m = messages[0];
