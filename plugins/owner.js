@@ -10,12 +10,16 @@ export default {
                 "TEL;type=CELL;type=VOICE;waid=6287866255637:+62 878-6625-5637\n" + // WhatsApp ID + phone number
                 "END:VCARD";
 
-            return sock.sendMessage(from, {
+            await sock.sendMessage(from, {
                 contacts: {
-                    displayName: "Jeff",
+                    displayName: "IkyyOFC",
                     contacts: [{ vcard }]
                 }
             });
-        } catch (e) {}
+            return true;
+        } catch (e) {
+            console.error("Error: ", e);
+            return false;
+        }
     }
 };
