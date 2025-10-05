@@ -1,5 +1,5 @@
 export default {
-    description: "kontak owner kalo user nanya atau kalo ada bug/error",
+    description: "nama sekaligus kontak owner kalo user nanya atau kalo ada bug/error",
     async execute({ sock, from, input, message, sender, fileBuffer }) {
         try {
             const vcard =
