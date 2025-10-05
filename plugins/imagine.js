@@ -14,6 +14,12 @@ export default {
             console.log(`   🎨 Generating image with prompt: ${input}`);
             
             let result = (await axios.get(`https://wudysoft.xyz/api/ai/nano-banana/v17?prompt=${input}`)).data
+            
+            if (!result.result.length || result.status !== "succeeded") {
+              console.error("Error API: ", result);
+              return false
+            }
+            
             await sock.sendMessage(from, {
                 image: { url: imageUrl },
                 caption: `✨ Generated!\n\n📝 Prompt: ${input}\n🤖 Mode: ${mode}`
