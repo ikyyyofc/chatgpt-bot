@@ -28,7 +28,7 @@ export default {
                 return false;
             }
 
-            const editedImageUrl = result.results[0].url;
+            const editedImageUrl = result.result[0];
 
             console.log(`   ✅ Image edited successfully`);
 
