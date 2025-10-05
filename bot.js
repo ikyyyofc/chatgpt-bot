@@ -45,7 +45,6 @@ async function loadPlugins() {
     try {
         if (!fs.existsSync(PLUGIN_DIR)) {
             fs.mkdirSync(PLUGIN_DIR);
-            console.log(colors.yellow('📁 Created plugins directory'));
         }
 
         const files = fs.readdirSync(PLUGIN_DIR).filter(f => f.endsWith('.js'));
@@ -64,18 +63,16 @@ async function loadPlugins() {
                         description: plugin.description || 'No description',
                         execute: plugin.execute
                     });
-                    console.log(colors.green(`🔌 Loaded plugin: ${pluginName}`));
-                } else {
-                    console.log(colors.yellow(`⚠️  Skipped ${file}: no execute function`));
+                    console.log(colors.green(`✓ ${pluginName}`));
                 }
             } catch (error) {
-                console.error(colors.red(`❌ Failed to load plugin ${file}:`), error.message);
+                console.error(colors.red(`✗ ${file}: ${error.message}`));
             }
         }
 
-        console.log(colors.cyan(`✅ Total ${plugins.size} plugins loaded\n`));
+        console.log(colors.cyan(`${plugins.size} plugins loaded\n`));
     } catch (error) {
-        console.error(colors.red('❌ Error loading plugins:'), error);
+        console.error(colors.red('Plugin load error:'), error);
     }
 }
 
@@ -86,12 +83,11 @@ function loadSessions() {
     try {
         if (fs.existsSync(SESSION_FILE)) {
             const data = fs.readFileSync(SESSION_FILE, 'utf8');
-            console.log(colors.yellow('📂 Loading sessions from file...'));
             userSessions = new Map(JSON.parse(data));
-            console.log(colors.green(`✅ Loaded ${userSessions.size} user sessions\n`));
+            console.log(colors.green(`${userSessions.size} sessions loaded\n`));
         }
     } catch (error) {
-        console.error(colors.red('❌ Error load sessions:'), error);
+        console.error(colors.red('Session load error:'), error);
     }
 }
 
@@ -99,9 +95,8 @@ function saveSessions() {
     try {
         const data = JSON.stringify([...userSessions]);
         fs.writeFileSync(SESSION_FILE, data, 'utf8');
-        console.log(colors.green('💾 Sessions saved'));
     } catch (error) {
-        console.error(colors.red('❌ Error save sessions:'), error);
+        console.error(colors.red('Session save error:'), error);
     }
 }
 
@@ -117,8 +112,6 @@ function parseAIResponse(text) {
         }
         
         if (!parsed.type || !parsed.output) {
-            console.log(colors.red('   ⚠️  Invalid JSON structure, missing required fields'));
-            
             return {
                 isPlugin: false,
                 type: 'chat',
@@ -139,9 +132,6 @@ function parseAIResponse(text) {
         };
         
     } catch (e) {
-        console.log(colors.red('   ⚠️  Failed to parse JSON:', e.message));
-        console.log(colors.yellow('   📝 Raw response:', text));
-        
         return {
             isPlugin: false,
             type: 'chat',
@@ -170,17 +160,10 @@ function randomDelay(min, max) {
     return new Promise(resolve => setTimeout(resolve, delay));
 }
 
-function calculateTypingTime(text) {
-    const chars = text.length;
-    const timeMs = (chars / config.TYPING_SPEED) * 1000;
-    return Math.min(Math.max(timeMs, 2000), 10000);
-}
-
 async function setPresence(sock, status) {
     try {
         await sock.sendPresenceUpdate(status);
         isOnline = (status === 'available');
-        console.log(colors.cyan(`📡 Presence set to: ${status}`));
     } catch (e) {}
 }
 
@@ -193,7 +176,6 @@ function resetOfflineTimer(sock) {
     
     offlineTimer = setTimeout(() => {
         if (isOnline) {
-            console.log(colors.yellow(`\n💤 No activity for ${AUTO_OFFLINE_DELAY / 60000} minutes, going offline...`));
             setPresence(sock, 'unavailable');
         }
     }, AUTO_OFFLINE_DELAY);
@@ -203,12 +185,10 @@ let botLidCache = null;
 
 // Group metadata cache untuk mengurangi API calls dan ratelimit
 const groupMetadataCache = new NodeCache({
-    stdTTL: 300, // cache 5 menit
-    checkperiod: 60, // check expired tiap 1 menit
-    useClones: false // performance optimization
+    stdTTL: 300,
+    checkperiod: 60,
+    useClones: false
 });
-
-console.log(colors.cyan('📦 Group metadata cache initialized'));
 
 const connect = async () => {
     await loadPlugins();
@@ -252,24 +232,24 @@ const connect = async () => {
         const { connection, lastDisconnect } = update;
         
         if (connection === 'open') {
-            console.log(colors.green('Successfully Connected With ') + colors.cyan(sock.user.name));
+            console.log(colors.green('Connected: ') + colors.cyan(sock.user.name));
             
             botStartTime = Date.now();
-            console.log(colors.yellow('⏳ Waiting 1 minute before processing messages...'));
+            console.log(colors.yellow('Waiting 60s before processing...\n'));
             
             await setPresence(sock, 'available');
             resetOfflineTimer(sock);
             
             setTimeout(() => {
                 isReady = true;
-                console.log(colors.green('✅ Bot is ready to process messages!\n'));
+                console.log(colors.green('Bot ready!\n'));
             }, 60000);
         }
         
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode;
             if (reason !== DisconnectReason.loggedOut) {
-                console.log(colors.yellow('Connection closed, reconnecting...'));
+                console.log(colors.yellow('Reconnecting...'));
                 isReady = false;
                 botStartTime = null;
                 isOnline = false;
@@ -322,12 +302,9 @@ const connect = async () => {
             const command = text.trim().split(' ')[0].toLowerCase();
 
             if (command === '/reset') {
-                if (isGroup) {
-                    console.log(colors.yellow(`   ⚠️  /reset ignored in group`));
-                    return;
-                }
+                if (isGroup) return;
                 
-                console.log(colors.yellow(`\n🔄 /reset from ${senderNumber}`));
+                console.log(colors.yellow(`Reset from ${senderNumber}`));
                 userSessions.delete(from);
                 saveSessions();
                 await sock.sendMessage(from, { text: 'oke, chat history udah direset! mulai dari awal yuk' });
@@ -338,23 +315,20 @@ const connect = async () => {
 
             if (command === '/leave') {
                 if (!userIsOwner) return;
-
                 if (!isGroup) {
                     await sock.sendMessage(from, { text: 'ini bukan grup bro' });
                     return;
                 }
 
-                console.log(colors.yellow(`\n👋 /leave from owner in group ${from}`));
+                console.log(colors.yellow(`Leave group ${from}`));
                 
                 try {
                     await sock.sendMessage(from, { text: 'oke deh, bye bye 👋' });
-                    
                     setTimeout(async () => {
                         await sock.groupLeave(from);
-                        console.log(colors.green(`✅ Left group ${from}`));
                     }, 1000);
                 } catch (error) {
-                    console.error(colors.red('❌ Leave group error:'), error);
+                    console.error(colors.red('Leave error:'), error);
                     await sock.sendMessage(from, { text: 'gagal keluar grup nih...' });
                 }
                 return;
@@ -363,31 +337,27 @@ const connect = async () => {
             if (command === '/update') {
                 if (!userIsOwner) return;
 
-                console.log(colors.yellow(`\n🔄 /update from owner`));
+                console.log(colors.yellow(`Update from owner`));
 
                 try {
                     await sock.sendMessage(from, { text: '🔄 Pulling latest changes from git...' });
 
                     const { stdout, stderr } = await execPromise('git pull');
-                    
-                    console.log('Git pull output:', stdout);
-                    if (stderr) console.log('Git pull errors:', stderr);
 
-                    console.log(colors.green('💾 Saving sessions before restart...'));
                     saveSessions();
 
                     await sock.sendMessage(from, { 
                         text: `✅ Update berhasil!\n🔄 Restarting bot...\n\n${stdout}` 
                     });
 
-                    console.log(colors.green('🔄 Restarting bot...\n'));
+                    console.log(colors.green('Restarting...\n'));
 
                     setTimeout(() => {
                         process.exit(0);
                     }, 1000);
 
                 } catch (error) {
-                    console.error(colors.red('❌ Update error:'), error);
+                    console.error(colors.red('Update error:'), error);
                     await sock.sendMessage(from, { 
                         text: `❌ Update gagal!\n\n${error.message}` 
                     });
@@ -398,7 +368,7 @@ const connect = async () => {
             if (command === '/eval') {
                 if (!userIsOwner) return;
 
-                console.log(colors.yellow(`\n⚡ /eval from owner`));
+                console.log(colors.yellow(`Eval from owner`));
 
                 const code = text.slice(6).trim();
                 
@@ -427,14 +397,12 @@ const connect = async () => {
 
                     const output = util.inspect(result, { depth: 2 });
                     
-                    console.log(colors.green(`✅ Eval result:`), output);
-                    
                     await sock.sendMessage(from, { 
                         text: `✅ Eval Success:\n\n${output}` 
                     });
 
                 } catch (error) {
-                    console.error(colors.red('❌ Eval error:'), error);
+                    console.error(colors.red('Eval error:'), error);
                     
                     await sock.sendMessage(from, { 
                         text: `❌ Eval Error:\n\n${error.message}\n\nStack:\n${error.stack}` 
@@ -446,41 +414,27 @@ const connect = async () => {
 
         if (isGroup) {
             try {
-                // cek cache dulu
                 let groupMetadata = groupMetadataCache.get(from);
                 
                 if (!groupMetadata) {
-                    console.log(colors.yellow(`   🔍 Cache miss, fetching group metadata...`));
                     groupMetadata = await sock.groupMetadata(from);
                     groupMetadataCache.set(from, groupMetadata);
-                    console.log(colors.gray(`   💾 Cached metadata for ${groupMetadata.subject}`));
-                } else {
-                    console.log(colors.green(`   ✅ Using cached metadata for ${groupMetadata.subject}`));
                 }
                 
                 const participants = groupMetadata.participants;
                 
-                console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
-                console.log(colors.gray(`   Total participants: ${participants.length}`));
-                
                 updateParticipantStore(from, participants);
                 
-                // update pushName dari sender message ini
                 if (m.pushName && sender) {
                     updateParticipantName(from, sender, m.pushName);
                 }
                 
-                console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
-                
                 if (!isOwnerInGroup(participants, config.OWNER_NUMBER)) {
-                    console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
                     setTimeout(() => {
                         sock.groupLeave(from).catch(() => {});
                     }, 3000);
                     return;
                 }
-                
-                console.log(colors.green(`   ✅ Owner found in group!`));
                 
                 const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || 
                                     m.message?.imageMessage?.contextInfo?.mentionedJid ||
@@ -492,31 +446,22 @@ const connect = async () => {
                 
                 if (!botLidCache && sock.user.lid) {
                     botLidCache = sock.user.lid;
-                    console.log(colors.green(`   🔑 Bot LID cached: ${botLidCache}`));
                 }
                 
-                console.log(colors.gray(`   Bot JID: ${botJid}`));
-                console.log(colors.gray(`   Bot LID: ${botLidCache || 'not found yet'}`));
-                console.log(colors.gray(`   Mentioned JIDs: ${mentionedJid.join(', ')}`));
-                
                 if (!isBotMentioned(mentionedJid, text, botJid, botNumber, botLidCache)) {
-                    console.log(colors.yellow(`   ⚠️  Bot not mentioned, ignoring message`));
                     return;
                 }
                 
-                console.log(colors.cyan(`\n👥 Group message from ${senderNumber} in ${groupMetadata.subject}`));
-                console.log(colors.green(`   ✅ Bot mentioned, processing...`));
+                console.log(colors.cyan(`Group: ${senderNumber}`));
                 
                 text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, from);
                 
-                console.log(colors.white(`   💬 Cleaned text: "${text}"`));
-                
-                // di grup, abaikan check text kosong karena mungkin ada media
-                
             } catch (error) {
-                console.error(colors.red('Error checking group:'), error.message);
+                console.error(colors.red('Group check error:'), error.message);
                 return;
             }
+        } else {
+            console.log(colors.cyan(`Private: ${senderNumber}`));
         }
 
         const hasMedia = m.message?.imageMessage || m.message?.videoMessage || 
@@ -528,14 +473,32 @@ const connect = async () => {
 
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
         await randomDelay(minRead, maxRead);
-        console.log(colors.gray(`   ⏱️  Waited ${Math.floor((Date.now() - m.messageTimestamp * 1000) / 1000)}s before reading`));
 
         await sock.readMessages([m.key]);
 
         const [minThink, maxThink] = config.DELAY_BEFORE_TYPING || [2000, 5000];
         const thinkDelay = Math.floor(Math.random() * (maxThink - minThink + 1)) + minThink;
         await new Promise(resolve => setTimeout(resolve, thinkDelay));
-        console.log(colors.gray(`   💭 Thinking for ${thinkDelay / 1000}s before typing...`));
+
+        if (!isOnline) {
+            await new Promise(resolve => setTimeout(resolve, ONLINE_DELAY));
+            await setPresence(sock, 'available');
+        }
+
+        resetOfflineTimer(sock);
+
+        if (!isReady) {
+            while (!isReady) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        if (processingRequests.has(from)) {
+            const oldController = processingRequests.get(from);
+            oldController.cancelled = true;
+        }
+
+        if (text) console.log(colors.white(`"${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`));gray(`   💭 Thinking for ${thinkDelay / 1000}s before typing...`));
 
         if (!isOnline) {
             console.log(colors.yellow(`\n🌐 Bot is offline, going online for ${senderNumber}...`));
@@ -588,28 +551,19 @@ const connect = async () => {
             if (!isGroup) {
                 if (!userSessions.has(from)) {
                     userSessions.set(from, []);
-                    console.log(colors.green(`   🆕 New user session created`));
                 }
                 
                 history = userSessions.get(from);
-                console.log(colors.yellow(`   📚 History: ${history.length} messages`));
-            } else {
-                console.log(colors.yellow(`   👥 Group chat - no history saved`));
             }
 
             const messagesToProcess = [...queue];
             queue.length = 0;
-
-            if (messagesToProcess.length > 1) {
-                console.log(colors.yellow(`   📦 Processing ${messagesToProcess.length} queued messages`));
-            }
 
             let fileBuffer = null;
             let combinedText = '';
 
             for (const message of messagesToProcess) {
                 if (requestController.cancelled) {
-                    console.log(colors.red(`   ❌ Request cancelled, stopping processing`));
                     clearInterval(typingInterval);
                     return;
                 }
@@ -623,22 +577,17 @@ const connect = async () => {
                     ''
                 );
 
-                // di grup, gunakan text yang sudah di-clean
                 if (isGroup) {
                     msgText = text;
                 }
 
-                // kumpulkan text untuk history
                 if (msgText.trim()) {
                     combinedText += (combinedText ? '\n' : '') + msgText;
                 }
 
                 const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-                if (quotedMsg) {
-                    console.log(colors.blue(`   🔗 Processing quoted message`));
-                    
-                    if (quotedMsg.imageMessage) {
-                        console.log(colors.green(`   📸 Quoted image detected`));
+                if (quotedMsg && !fileBuffer) {
+                    if (quotedMsg.imageMessage || quotedMsg.videoMessage || quotedMsg.documentMessage || quotedMsg.audioMessage) {
                         try {
                             const buffer = await downloadMediaMessage(
                                 { message: quotedMsg },
@@ -647,55 +596,12 @@ const connect = async () => {
                                 { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
                             );
                             fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download quoted media:`, e.message));
-                        }
-                    } else if (quotedMsg.videoMessage) {
-                        console.log(colors.green(`   🎥 Quoted video detected`));
-                        try {
-                            const buffer = await downloadMediaMessage(
-                                { message: quotedMsg },
-                                'buffer',
-                                {},
-                                { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
-                            );
-                            fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download quoted media:`, e.message));
-                        }
-                    } else if (quotedMsg.documentMessage) {
-                        console.log(colors.green(`   📄 Quoted document detected`));
-                        try {
-                            const buffer = await downloadMediaMessage(
-                                { message: quotedMsg },
-                                'buffer',
-                                {},
-                                { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
-                            );
-                            fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download quoted media:`, e.message));
-                        }
-                    } else if (quotedMsg.audioMessage) {
-                        console.log(colors.green(`   🎵 Quoted audio detected`));
-                        try {
-                            const buffer = await downloadMediaMessage(
-                                { message: quotedMsg },
-                                'buffer',
-                                {},
-                                { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
-                            );
-                            fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download quoted media:`, e.message));
-                        }
+                        } catch (e) {}
                     }
                 }
 
-                // download media dari pesan langsung (bukan quoted)
                 if (!fileBuffer) {
-                    if (message.message?.imageMessage) {
-                        console.log(colors.green(`   📸 Image detected`));
+                    if (message.message?.imageMessage || message.message?.videoMessage || message.message?.documentMessage || message.message?.audioMessage) {
                         try {
                             const buffer = await downloadMediaMessage(
                                 message,
@@ -704,68 +610,23 @@ const connect = async () => {
                                 { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
                             );
                             fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download media:`, e.message));
-                        }
-                    } else if (message.message?.videoMessage) {
-                        console.log(colors.green(`   🎥 Video detected`));
-                        try {
-                            const buffer = await downloadMediaMessage(
-                                message,
-                                'buffer',
-                                {},
-                                { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
-                            );
-                            fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download media:`, e.message));
-                        }
-                    } else if (message.message?.documentMessage) {
-                        console.log(colors.green(`   📄 Document detected`));
-                        try {
-                            const buffer = await downloadMediaMessage(
-                                message,
-                                'buffer',
-                                {},
-                                { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
-                            );
-                            fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download media:`, e.message));
-                        }
-                    } else if (message.message?.audioMessage) {
-                        console.log(colors.green(`   🎵 Audio detected`));
-                        try {
-                            const buffer = await downloadMediaMessage(
-                                message,
-                                'buffer',
-                                {},
-                                { logger: Pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
-                            );
-                            fileBuffer = buffer;
-                        } catch (e) {
-                            console.log(colors.red(`   ❌ Failed to download media:`, e.message));
-                        }
+                        } catch (e) {}
                     }
                 }
             }
 
-            // validasi: harus ada text atau media
             if (!combinedText.trim() && !fileBuffer) {
-                console.log(colors.yellow(`   ⚠️  No text and no media, ignoring`));
                 clearInterval(typingInterval);
                 processingRequests.delete(from);
                 return;
             }
 
-            // tambahkan ke history
             history.push({
                 role: 'user',
                 content: combinedText.trim() || '[Media]'
             });
 
             if (requestController.cancelled) {
-                console.log(colors.red(`   ❌ Request cancelled before AI processing`));
                 clearInterval(typingInterval);
                 return;
             }
@@ -773,10 +634,7 @@ const connect = async () => {
             if (!isGroup && history.length > config.MAX_HISTORY) {
                 const removed = history.length - config.MAX_HISTORY;
                 history.splice(0, removed);
-                console.log(colors.yellow(`   🗑️  Removed ${removed} old messages from history`));
             }
-
-            console.log(colors.magenta(`   🤖 Calling AI...`));
 
             const pluginInfo = Array.from(plugins.values()).map(p => 
                 `- ${p.name}: ${p.description}`
@@ -874,12 +732,9 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             const response = await chatAI(messagesWithSystem, fileBuffer);
 
             if (requestController.cancelled) {
-                console.log(colors.red(`   ❌ Request cancelled after AI response`));
                 clearInterval(typingInterval);
                 return;
             }
-
-            console.log(colors.green(`   ✅ AI responded (${response.length} chars)`));
 
             const parsed = parseAIResponse(response);
 
@@ -893,13 +748,10 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             }
 
             const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
-            console.log(colors.green(`   📤 Response sent to ${senderNumber}`));
 
             clearInterval(typingInterval);
 
             if (parsed.isPlugin && plugins.has(parsed.type)) {
-                console.log(colors.blue(`   🔌 Executing plugin: ${parsed.type}`));
-                
                 await sock.sendMessage(from, {
                     react: {
                         text: '⏳',
@@ -925,9 +777,8 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                         }
                     });
 
-                    console.log(colors.green(`   ✅ Plugin executed successfully`));
                 } catch (pluginError) {
-                    console.error(colors.red(`   ❌ Plugin error:`), pluginError.message);
+                    console.error(colors.red('Plugin error:'), pluginError.message);
                     
                     await sock.sendMessage(from, {
                         react: {
@@ -943,10 +794,9 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             }
 
             processingRequests.delete(from);
-            console.log(colors.green(`   ✓ Request completed\n`));
 
         } catch (error) {
-            console.error(colors.red('\n❌ Error:'), error.message);
+            console.error(colors.red('Error:'), error.message);
             
             if (typeof typingInterval !== 'undefined') {
                 clearInterval(typingInterval);
@@ -956,7 +806,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 text: 'waduh error nih... coba lagi deh atau ketik /reset buat mulai dari awal' 
             });
             processingRequests.delete(from);
-            console.log(colors.red(`   ✗ Request failed\n`));
         }
     });
 
@@ -971,14 +820,10 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
     });
 
     process.on('SIGINT', () => {
-        console.log(colors.yellow('\n\n⏹️  Shutting down...'));
-        console.log(colors.yellow('💾 Saving sessions...'));
+        console.log(colors.yellow('\nShutting down...'));
         saveSessions();
-        
-        console.log(colors.yellow('🗑️  Cleaning old participant data...'));
         cleanOldEntries(30);
-        
-        console.log(colors.green('👋 Bot stopped\n'));
+        console.log(colors.green('Stopped\n'));
         process.exit(0);
     });
 };
@@ -986,6 +831,9 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
 connect().catch(() => connect());
 
 console.log(colors.cyan('╔════════════════════════════════════════╗'));
+console.log(colors.cyan('║   WhatsApp Bot Starting...            ║'));
+console.log(colors.cyan('║   Press Ctrl+C to stop                ║'));
+console.log(colors.cyan('╚════════════════════════════════════════╝\n'));════╗'));
 console.log(colors.cyan('║   🤖 WhatsApp Bot is starting...     ║'));
 console.log(colors.cyan('║   Press Ctrl+C to stop                ║'));
 console.log(colors.cyan('╚════════════════════════════════════════╝\n'));
