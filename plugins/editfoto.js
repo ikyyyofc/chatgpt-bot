@@ -23,7 +23,7 @@ export default {
 
             const result = (await axios.get(`https://wudysoft.xyz/api/ai/nano-banana/v17?prompt=${input}&imageUrl=${upl}`)).data
 
-            if (!result.results || !result.results[0] || !result.results[0].url) {
+            if (!result.result.length === 0 || result.status !== "succeeded") {
                 await sock.sendMessage(from, { text: 'gagal edit foto nih...' });
                 return false;
             }
