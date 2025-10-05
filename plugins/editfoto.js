@@ -24,7 +24,7 @@ export default {
             const result = (await axios.get(`https://wudysoft.xyz/api/ai/nano-banana/v17?prompt=${input}&imageUrl=${upl}`)).data
 
             if (!result.result.length || result.status !== "succeeded") {
-              console.error(result)
+              console.error("Error API: ", result)
               return false
             }
 
