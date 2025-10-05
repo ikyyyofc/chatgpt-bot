@@ -452,7 +452,11 @@ const connect = async () => {
                 
                 console.log(colors.green(`   ✅ Owner found in group!`));
                 
-                const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || 
+                                    m.message?.imageMessage?.contextInfo?.mentionedJid ||
+                                    m.message?.videoMessage?.contextInfo?.mentionedJid ||
+                                    m.message?.documentMessage?.contextInfo?.mentionedJid ||
+                                    [];
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
                 
@@ -477,10 +481,7 @@ const connect = async () => {
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
                 
-                if (!text.trim()) {
-                    console.log(colors.yellow(`   ⚠️  Text empty after cleaning, ignoring`));
-                    return;
-                }
+                // di grup, abaikan check text kosong karena mungkin ada media
                 
             } catch (error) {
                 console.error(colors.red('Error checking group:'), error.message);
