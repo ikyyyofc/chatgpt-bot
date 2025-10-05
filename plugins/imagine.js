@@ -20,6 +20,8 @@ export default {
               return false
             }
             
+            let imageUrl = result.result[0];
+            
             await sock.sendMessage(from, {
                 image: { url: imageUrl },
                 caption: `✨ Generated!\n\n📝 Prompt: ${input}\n🤖 Mode: ${mode}`
