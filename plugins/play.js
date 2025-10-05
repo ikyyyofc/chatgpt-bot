@@ -39,7 +39,7 @@ export default {
             );
 
             if (!res.data.status) {
-                await sock.sendMessage(from, { text: 'gagal download nih...' });
+                console.error("Error API: ", res.data)
                 return false;
             }
 
