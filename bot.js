@@ -27,6 +27,7 @@ import {
     isBotMentioned,
     cleanTextFromMentions,
     updateParticipantStore,
+    updateParticipantName,
     cleanOldEntries
 } from './lib/helpers.js';
 
@@ -433,6 +434,11 @@ const connect = async () => {
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
                 
                 updateParticipantStore(from, participants);
+                
+                // update pushName dari sender message ini
+                if (m.pushName && sender) {
+                    updateParticipantName(from, sender, m.pushName);
+                }
                 
                 console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
                 
