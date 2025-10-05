@@ -31,7 +31,6 @@ export default {
 
         } catch (error) {
             console.error(`   ❌ Sticker plugin error:`, error.message);
-            await sock.sendMessage(from, { text: 'gagal bikin sticker nih...' });
             return false;
         }
     }
