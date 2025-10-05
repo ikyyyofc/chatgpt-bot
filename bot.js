@@ -19,21 +19,23 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// import helpers
 import { 
     getParticipantName,
     getSender,
     isOwner,
     isOwnerInGroup,
     isBotMentioned,
-    cleanTextFromMentions
+    cleanTextFromMentions,
+    updateParticipantStore,
+    cleanOldEntries
 } from './lib/helpers.js';
 
-// dynamic import config dan gemini
 const config = await import('./config.js').then(m => m.default);
 const chatAI = await import('./gemini.js').then(m => m.default);
 
-// load semua plugin
+// GLOBAL TRACKING UNTUK EVAL
+global.lastMessage = null;
+
 const plugins = new Map();
 const PLUGIN_DIR = path.join(__dirname, 'plugins');
 
@@ -75,7 +77,6 @@ async function loadPlugins() {
     }
 }
 
-// load session dari file
 const SESSION_FILE = path.join(__dirname, 'sessions.json');
 let userSessions = new Map();
 
@@ -102,7 +103,6 @@ function saveSessions() {
     }
 }
 
-// parse response AI
 function parseAIResponse(text) {
     try {
         let parsed = null;
@@ -150,30 +150,24 @@ function parseAIResponse(text) {
     }
 }
 
-// tracking request yang lagi diproses per user
 const processingRequests = new Map();
 const messageQueues = new Map();
 
-// tracking bot startup time
 let botStartTime = null;
 let isReady = false;
 
-// tracking activity untuk auto offline
 let lastActivityTime = Date.now();
 let isOnline = true;
 let offlineTimer = null;
 
-// config auto offline (dalam milidetik)
 const AUTO_OFFLINE_DELAY = config.AUTO_OFFLINE_MINUTES * 60 * 1000;
 const ONLINE_DELAY = config.ONLINE_DELAY_SECONDS * 1000;
 
-// fungsi random delay
 function randomDelay(min, max) {
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
     return new Promise(resolve => setTimeout(resolve, delay));
 }
 
-// fungsi hitung typing time berdasarkan panjang text
 function calculateTypingTime(text) {
     const chars = text.length;
     const timeMs = (chars / config.TYPING_SPEED) * 1000;
@@ -188,7 +182,6 @@ async function setPresence(sock, status) {
     } catch (e) {}
 }
 
-// fungsi reset offline timer
 function resetOfflineTimer(sock) {
     lastActivityTime = Date.now();
     
@@ -204,7 +197,6 @@ function resetOfflineTimer(sock) {
     }, AUTO_OFFLINE_DELAY);
 }
 
-// tracking bot LID (diambil pas bot pertama send message di grup)
 let botLidCache = null;
 
 const connect = async () => {
@@ -280,10 +272,12 @@ const connect = async () => {
         const m = messages[0];
         if (!m.message) return;
 
+        // TRACK MESSAGE
+        global.lastMessage = m;
+
         const from = m.key.remoteJid;
         const isGroup = from.endsWith('@g.us');
         
-        // gunakan helper function
         const sender = getSender(m, isGroup, from);
         const senderNumber = sender.split('@')[0];
         
@@ -298,7 +292,6 @@ const connect = async () => {
 
         if (m.key.fromMe) return;
 
-        // COMMAND HANDLER
         const isCommand = text.trim().startsWith('/');
         
         if (isCommand) {
@@ -310,7 +303,6 @@ const connect = async () => {
 
             const command = text.trim().split(' ')[0].toLowerCase();
 
-            // /reset - private chat only
             if (command === '/reset') {
                 if (isGroup) {
                     console.log(colors.yellow(`   ⚠️  /reset ignored in group`));
@@ -324,10 +316,8 @@ const connect = async () => {
                 return;
             }
 
-            // cek owner pake helper
             const userIsOwner = isOwner(sender, senderNumber, config.OWNER_NUMBER);
 
-            // /leave - owner only, group only
             if (command === '/leave') {
                 if (!userIsOwner) return;
 
@@ -352,7 +342,6 @@ const connect = async () => {
                 return;
             }
 
-            // /update - owner only
             if (command === '/update') {
                 if (!userIsOwner) return;
 
@@ -388,7 +377,6 @@ const connect = async () => {
                 return;
             }
 
-            // /eval - owner only
             if (command === '/eval') {
                 if (!userIsOwner) return;
 
@@ -436,7 +424,6 @@ const connect = async () => {
             }
         }
 
-        // FILTER GRUP
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(from);
@@ -444,9 +431,11 @@ const connect = async () => {
                 
                 console.log(colors.yellow(`\n👥 Checking group: ${groupMetadata.subject}`));
                 console.log(colors.gray(`   Total participants: ${participants.length}`));
+                
+                updateParticipantStore(from, participants);
+                
                 console.log(colors.gray(`   Looking for owner: ${config.OWNER_NUMBER}`));
                 
-                // cek owner pake helper
                 if (!isOwnerInGroup(participants, config.OWNER_NUMBER)) {
                     console.log(colors.yellow(`👥 Owner not in group ${groupMetadata.subject}, leaving...`));
                     setTimeout(() => {
@@ -457,7 +446,6 @@ const connect = async () => {
                 
                 console.log(colors.green(`   ✅ Owner found in group!`));
                 
-                // cek bot mention
                 const mentionedJid = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const botNumber = sock.user.id.split(':')[0];
@@ -469,10 +457,8 @@ const connect = async () => {
                 
                 console.log(colors.gray(`   Bot JID: ${botJid}`));
                 console.log(colors.gray(`   Bot LID: ${botLidCache || 'not found yet'}`));
-                console.log(colors.gray(`   Bot Number: ${botNumber}`));
                 console.log(colors.gray(`   Mentioned JIDs: ${mentionedJid.join(', ')}`));
                 
-                // pake helper isBotMentioned
                 if (!isBotMentioned(mentionedJid, text, botJid, botNumber, botLidCache)) {
                     console.log(colors.yellow(`   ⚠️  Bot not mentioned, ignoring message`));
                     return;
@@ -481,8 +467,7 @@ const connect = async () => {
                 console.log(colors.cyan(`\n👥 Group message from ${senderNumber} in ${groupMetadata.subject}`));
                 console.log(colors.green(`   ✅ Bot mentioned, processing...`));
                 
-                // bersihkan text pake helper (udah support nama sekarang!)
-                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, participants);
+                text = cleanTextFromMentions(text, mentionedJid, botJid, botNumber, botLidCache, from);
                 
                 console.log(colors.white(`   💬 Cleaned text: "${text}"`));
                 
@@ -502,14 +487,12 @@ const connect = async () => {
         
         if (!text && !hasMedia) return;
 
-        // delay sebelum baca pesan (1-3 detik)
         const [minRead, maxRead] = config.DELAY_BEFORE_READ;
         await randomDelay(minRead, maxRead);
         console.log(colors.gray(`   ⏱️  Waited ${Math.floor((Date.now() - m.messageTimestamp * 1000) / 1000)}s before reading`));
 
         await sock.readMessages([m.key]);
 
-        // delay setelah baca sebelum ngetik
         const [minThink, maxThink] = config.DELAY_BEFORE_TYPING || [2000, 5000];
         const thinkDelay = Math.floor(Math.random() * (maxThink - minThink + 1)) + minThink;
         await new Promise(resolve => setTimeout(resolve, thinkDelay));
@@ -562,7 +545,6 @@ const connect = async () => {
 
             await sock.sendPresenceUpdate('composing', from);
 
-            // session history cuma untuk private chat
             let history = [];
             if (!isGroup) {
                 if (!userSessions.has(from)) {
@@ -601,7 +583,6 @@ const connect = async () => {
                     ''
                 );
 
-                // kalo dari grup, udah dibersihkan di atas
                 if (isGroup) {
                     msgText = text;
                 }
@@ -850,7 +831,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
 
             const parsed = parseAIResponse(response);
 
-            // cuma save ke history kalo bukan grup
             if (!isGroup) {
                 history.push({
                     role: 'assistant',
@@ -860,7 +840,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 saveSessions();
             }
 
-            // kirim pesan bot dan simpan key-nya
             const botMessage = await sock.sendMessage(from, { text: parsed.output }, { quoted: m });
             console.log(colors.green(`   📤 Response sent to ${senderNumber}`));
 
@@ -869,7 +848,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             if (parsed.isPlugin && plugins.has(parsed.type)) {
                 console.log(colors.blue(`   🔌 Executing plugin: ${parsed.type}`));
                 
-                // react di pesan bot
                 await sock.sendMessage(from, {
                     react: {
                         text: '⏳',
@@ -944,6 +922,10 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
         console.log(colors.yellow('\n\n⏹️  Shutting down...'));
         console.log(colors.yellow('💾 Saving sessions...'));
         saveSessions();
+        
+        console.log(colors.yellow('🗑️  Cleaning old participant data...'));
+        cleanOldEntries(30);
+        
         console.log(colors.green('👋 Bot stopped\n'));
         process.exit(0);
     });
