@@ -249,7 +249,7 @@ const connect = async () => {
             console.log(colors.green('Successfully Connected With ') + colors.cyan(sock.user.name));
             
             botStartTime = Date.now();
-            console.log(colors.yellow('⏳ Waiting 1 minute before processing messages...'));
+            console.log(colors.yellow('⏳ Waiting 30 second before processing messages...'));
             
             await setPresence(sock, 'available');
             resetOfflineTimer(sock);
@@ -257,7 +257,7 @@ const connect = async () => {
             setTimeout(() => {
                 isReady = true;
                 console.log(colors.green('✅ Bot is ready to process messages!\n'));
-            }, 60000);
+            }, 30000);
         }
         
         if (connection === 'close') {
