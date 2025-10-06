@@ -23,7 +23,7 @@ export default {
             const author = video.author.name;
 
             const res = await axios.get(
-                `https://api.nekolabs.my.id/downloader/youtube/v1?url=${url}&format=480`
+                `https://api.nekolabs.my.id/downloader/youtube/v1?url=${url}&format=360`
             );
 
             if (!res.data.status) {
