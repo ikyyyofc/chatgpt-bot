@@ -11,7 +11,7 @@ export default {
             let f = anu.all.filter(v => !v.url.includes("@"));
 
             if (!f.length) {
-                console.error("Song Not Found...");
+                console.error("Video Not Found...");
                 return false;
             }
 
