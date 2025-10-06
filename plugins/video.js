@@ -1,5 +1,5 @@
 import yts from "yt-search";
-import axios from "axios";
+import { Innertube } from "youtubei.js";
 import fs from "fs";
 import path from "path";
 
@@ -8,6 +8,7 @@ export default {
 
     async execute({ sock, from, input, message, sender }) {
         try {
+            // search video pake yt-search
             let anu = await yts(input);
             let f = anu.all.filter(v => !v.url.includes("@"));
 
@@ -18,21 +19,21 @@ export default {
 
             const video = f[0];
             const url = video.url;
-            const thumbnail = video.thumbnail;
             const title = video.title;
             const ago = video.ago;
             const author = video.author.name;
 
-            const res = await axios.get(
-                `https://api.nekolabs.my.id/downloader/youtube/v1?url=${url}&format=360`
-            );
+            // init innertube
+            const innertube = await Innertube.create();
+            
+            // ambil info video
+            const info = await innertube.getInfo(video.videoId);
 
-            if (!res.data.status) {
-                console.error("Error API: ", res.data);
-                return false;
-            }
-
-            const downloadUrl = res.data.result.downloadUrl;
+            // ambil format video 360p
+            const format = info.chooseFormat({ 
+                quality: "360p",
+                type: "video+audio"
+            });
 
             // bikin folder temp kalo belom ada
             const tempDir = path.join(process.cwd(), "temp");
@@ -40,19 +41,23 @@ export default {
                 fs.mkdirSync(tempDir);
             }
 
-            // path file sementara
             const fileName = `${Date.now()}.mp4`;
             const filePath = path.join(tempDir, fileName);
 
-            // download ke lokal
-            const writer = fs.createWriteStream(filePath);
-            const response = await axios({
-                url: downloadUrl,
-                method: "GET",
-                responseType: "stream"
+            // download video
+            const stream = await info.download({
+                type: "video+audio",
+                quality: "360p",
+                format: "mp4"
             });
 
-            response.data.pipe(writer);
+            const writer = fs.createWriteStream(filePath);
+            
+            for await (const chunk of stream) {
+                writer.write(chunk);
+            }
+
+            writer.end();
 
             await new Promise((resolve, reject) => {
                 writer.on("finish", resolve);
@@ -69,7 +74,7 @@ export default {
                 { quoted: message }
             );
 
-            // hapus file setelah terkirim
+            // hapus file
             fs.unlinkSync(filePath);
 
             return true;
