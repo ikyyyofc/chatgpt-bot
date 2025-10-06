@@ -14,7 +14,7 @@ export default {
                 from,
                 {
                     video: {
-                        url: res.play
+                        url: res.data.play
                     }
                 },
                 { quoted: message }
