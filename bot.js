@@ -936,7 +936,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             const botMessage = await sock.sendMessage(
                 from,
                 { text: parsed.output },
-                { quoted: isGroup ? m : null }
+                { quoted: isGroup || isStatus ? m : null }
             );
             console.log(colors.green(`📤 Sent\n`));
 
