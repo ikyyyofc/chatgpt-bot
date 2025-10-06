@@ -348,15 +348,15 @@ const connect = async () => {
 
         if (m.key.fromMe) return;
 
-        const isCommand = text.trim().startsWith("/");
+        const isCommand = text.trim().startsWith("/") || text.trim().startsWith(">") || text.trim().startsWith("=>");
 
-        if (isCommand) {
-            const messageTimestamp = m.messageTimestamp * 1000;
-            if (!isReady || messageTimestamp < botStartTime) {
-                return;
-            }
+if (isCommand) {
+    const messageTimestamp = m.messageTimestamp * 1000;
+    if (!isReady || messageTimestamp < botStartTime) {
+        return;
+    }
 
-            const command = text.trim().split(" ")[0].toLowerCase();
+    const command = text.trim().split(" ")[0].toLowerCase();
 
             if (command === "/reset") {
                 if (isGroup) return;
