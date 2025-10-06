@@ -39,7 +39,7 @@ export default {
                     video: {
                         url: downloadUrl
                     },
-                    caption: title
+                    caption: `${title}\n\n${author} || ${ago}`
                 },
                 { quoted: message }
             );
