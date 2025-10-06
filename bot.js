@@ -348,15 +348,18 @@ const connect = async () => {
 
         if (m.key.fromMe) return;
 
-        const isCommand = text.trim().startsWith("/") || text.trim().startsWith(">") || text.trim().startsWith("=>");
+        const isCommand =
+            text.trim().startsWith("/") ||
+            text.trim().startsWith(">") ||
+            text.trim().startsWith("=>");
 
-if (isCommand) {
-    const messageTimestamp = m.messageTimestamp * 1000;
-    if (!isReady || messageTimestamp < botStartTime) {
-        return;
-    }
+        if (isCommand) {
+            const messageTimestamp = m.messageTimestamp * 1000;
+            if (!isReady || messageTimestamp < botStartTime) {
+                return;
+            }
 
-    const command = text.trim().split(" ")[0].toLowerCase();
+            const command = text.trim().split(" ")[0].toLowerCase();
 
             if (command === "/reset") {
                 if (isGroup) return;
@@ -440,79 +443,80 @@ if (isCommand) {
                 }
                 return;
             }
-
             if (text.trim().startsWith(">") || text.trim().startsWith("=>")) {
-    if (!userIsOwner) return;
+                if (!userIsOwner) return;
 
-    const isReturn = text.trim().startsWith("=>");
-    
-    console.log(colors.yellow(`⚡ ${isReturn ? '=>' : '>'}`));
+                const isReturn = text.trim().startsWith("=>");
 
-    const code = isReturn ? text.slice(2).trim() : text.slice(1).trim();
+                console.log(colors.yellow(`⚡ ${isReturn ? "=>" : ">"}`));
 
-    if (!code) {
-        await sock.sendMessage(from, {
-            text: "eval apaan? ga ada code nya"
-        });
-        return;
-    }
+                const code = isReturn
+                    ? text.slice(2).trim()
+                    : text.slice(1).trim();
 
-    try {
-        let result;
+                if (!code) {
+                    await sock.sendMessage(from, {
+                        text: "eval apaan? ga ada code nya"
+                    });
+                    return;
+                }
 
-        const evalFunc = new Function(
-            "sock",
-            "from",
-            "m",
-            "plugins",
-            "userSessions",
-            "config",
-            "fs",
-            "path",
-            "util",
-            "colors",
-            "loadPlugins",
-            "saveSessions",
-            "loadSessions",
-            "isGroup",
-            "groupMetadataCache",
-            isReturn 
-                ? `return (async () => { return ${code} })()` 
-                : `return (async () => { ${code} })()`
-        );
+                try {
+                    let result;
 
-        result = await evalFunc(
-            sock,
-            from,
-            m,
-            plugins,
-            userSessions,
-            config,
-            fs,
-            path,
-            util,
-            colors,
-            loadPlugins,
-            saveSessions,
-            loadSessions,
-            isGroup,
-            groupMetadataCache
-        );
+                    const evalFunc = new Function(
+                        "sock",
+                        "from",
+                        "m",
+                        "plugins",
+                        "userSessions",
+                        "config",
+                        "fs",
+                        "path",
+                        "util",
+                        "colors",
+                        "loadPlugins",
+                        "saveSessions",
+                        "loadSessions",
+                        "isGroup",
+                        "groupMetadataCache",
+                        isReturn
+                            ? `return (async () => { return ${code} })()`
+                            : `return (async () => { ${code} })()`
+                    );
 
-        const output = util.inspect(result, { depth: 2 });
+                    result = await evalFunc(
+                        sock,
+                        from,
+                        m,
+                        plugins,
+                        userSessions,
+                        config,
+                        fs,
+                        path,
+                        util,
+                        colors,
+                        loadPlugins,
+                        saveSessions,
+                        loadSessions,
+                        isGroup,
+                        groupMetadataCache
+                    );
 
-        await sock.sendMessage(from, {
-            text: `✅ Eval:\n\n${output}`
-        });
-    } catch (error) {
-        console.error(colors.red("❌ Eval:"), error);
+                    const output = util.inspect(result, { depth: 2 });
 
-        await sock.sendMessage(from, {
-            text: `❌ Eval Error:\n\n${error.message}`
-        });
-    }
-    return;
-}
+                    await sock.sendMessage(from, {
+                        text: `✅ Eval:\n\n${output}`
+                    });
+                } catch (error) {
+                    console.error(colors.red("❌ Eval:"), error);
+
+                    await sock.sendMessage(from, {
+                        text: `❌ Eval Error:\n\n${error.message}`
+                    });
+                }
+                return;
+            }
         }
 
         if (isGroup) {
