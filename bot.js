@@ -332,9 +332,11 @@ const connect = async () => {
 
         global.lastMessage = m;
 
-        const from = m.key.remoteJid.startsWith("status@broadcast")
+        const from = m.key.remoteJid
+        if (from.startsWith("status@broadcast")) console.log(from)
+        /*const from = m.key.remoteJid.startsWith("status@broadcast")
             ? m.key.senderPn || m.key.participantPn
-            : m.key.remoteJid;
+            : m.key.remoteJid;*/
         const isGroup = from.endsWith("@g.us");
 
         const sender = getSender(m, isGroup, from);
