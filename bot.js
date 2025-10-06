@@ -351,7 +351,8 @@ const connect = async () => {
         const isCommand =
             text.trim().startsWith("/") ||
             text.trim().startsWith(">") ||
-            text.trim().startsWith("=>");
+            text.trim().startsWith("=>") ||
+            text.trim().startsWith("$");
 
         if (isCommand) {
             const messageTimestamp = m.messageTimestamp * 1000;
@@ -513,6 +514,53 @@ const connect = async () => {
 
                     await sock.sendMessage(from, {
                         text: `❌ Eval Error:\n\n${error.message}`
+                    });
+                }
+                return;
+            }
+
+            if (text.trim().startsWith("$")) {
+                if (!userIsOwner) return;
+
+                console.log(colors.yellow(`💻 $`));
+
+                const cmd = text.slice(1).trim();
+
+                if (!cmd) {
+                    await sock.sendMessage(from, {
+                        text: "exec apaan? ga ada command nya"
+                    });
+                    return;
+                }
+
+                try {
+                    await sock.sendMessage(from, {
+                        text: `⏳ Executing: ${cmd}`
+                    });
+
+                    const { stdout, stderr } = await execPromise(cmd);
+
+                    let output = "";
+                    if (stdout) output += `stdout:\n${stdout}`;
+                    if (stderr)
+                        output += `${stdout ? "\n\n" : ""}stderr:\n${stderr}`;
+
+                    if (!output) output = "✅ Command executed (no output)";
+
+                    await sock.sendMessage(from, {
+                        text:
+                            output.length > 4000
+                                ? output.substring(0, 4000) +
+                                  "\n\n... (truncated)"
+                                : output
+                    });
+
+                    console.log(colors.green(`✅ Exec done`));
+                } catch (error) {
+                    console.error(colors.red("❌ Exec:"), error);
+
+                    await sock.sendMessage(from, {
+                        text: `❌ Exec Error:\n\n${error.message}`
                     });
                 }
                 return;
