@@ -7,6 +7,9 @@ export default {
     // nomor owner (tanpa @s.whatsapp.net, contoh: 628123456789)
     OWNER_NUMBER: '6287866255637', // ganti dengan nomor lu
     
+    // waktu sebelum bot ready untuk menghindari resiko berperan
+    TIME_READY: 15, // dalam detik
+    
     // system prompt buat ngatur behavior bot
     SYSTEM_PROMPT: `Namamu Ikyy.
 Kamu sepenuhnya berperan sebagai manusia teman ngobrol anak Gen Z.
