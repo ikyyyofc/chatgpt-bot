@@ -441,124 +441,78 @@ const connect = async () => {
                 return;
             }
 
-            if (command === "/eval" || text.startsWith(">")) {
-                if (!userIsOwner) return;
+            if (text.trim().startsWith(">") || text.trim().startsWith("=>")) {
+    if (!userIsOwner) return;
 
-                let code;
-                let isReturn = false;
+    const isReturn = text.trim().startsWith("=>");
+    
+    console.log(colors.yellow(`⚡ ${isReturn ? '=>' : '>'}`));
 
-                if (text.startsWith("=>")) {
-                    code = text.slice(2).trim();
-                    isReturn = true;
-                    console.log(colors.yellow(`⚡ => (return)`));
-                } else if (text.startsWith(">")) {
-                    code = text.slice(1).trim();
-                    console.log(colors.yellow(`⚡ >`));
-                } else {
-                    code = text.slice(6).trim();
-                    console.log(colors.yellow(`⚡ /eval`));
-                }
+    const code = isReturn ? text.slice(2).trim() : text.slice(1).trim();
 
-                if (!code) {
-                    await sock.sendMessage(from, {
-                        text: "eval apaan? ga ada code nya"
-                    });
-                    return;
-                }
+    if (!code) {
+        await sock.sendMessage(from, {
+            text: "eval apaan? ga ada code nya"
+        });
+        return;
+    }
 
-                try {
-                    let result;
+    try {
+        let result;
 
-                    if (isReturn) {
-                        const evalFunc = new Function(
-                            "sock",
-                            "from",
-                            "m",
-                            "plugins",
-                            "userSessions",
-                            "config",
-                            "fs",
-                            "path",
-                            "util",
-                            "colors",
-                            "loadPlugins",
-                            "saveSessions",
-                            "loadSessions",
-                            "isGroup",
-                            "groupMetadataCache",
-                            `return (async () => { return ${code} })()`
-                        );
+        const evalFunc = new Function(
+            "sock",
+            "from",
+            "m",
+            "plugins",
+            "userSessions",
+            "config",
+            "fs",
+            "path",
+            "util",
+            "colors",
+            "loadPlugins",
+            "saveSessions",
+            "loadSessions",
+            "isGroup",
+            "groupMetadataCache",
+            isReturn 
+                ? `return (async () => { return ${code} })()` 
+                : `return (async () => { ${code} })()`
+        );
 
-                        result = await evalFunc(
-                            sock,
-                            from,
-                            m,
-                            plugins,
-                            userSessions,
-                            config,
-                            fs,
-                            path,
-                            util,
-                            colors,
-                            loadPlugins,
-                            saveSessions,
-                            loadSessions,
-                            isGroup,
-                            groupMetadataCache
-                        );
-                    } else {
-                        const evalFunc = new Function(
-                            "sock",
-                            "from",
-                            "m",
-                            "plugins",
-                            "userSessions",
-                            "config",
-                            "fs",
-                            "path",
-                            "util",
-                            "colors",
-                            "loadPlugins",
-                            "saveSessions",
-                            "loadSessions",
-                            "isGroup",
-                            "groupMetadataCache",
-                            `return (async () => { ${code} })()`
-                        );
+        result = await evalFunc(
+            sock,
+            from,
+            m,
+            plugins,
+            userSessions,
+            config,
+            fs,
+            path,
+            util,
+            colors,
+            loadPlugins,
+            saveSessions,
+            loadSessions,
+            isGroup,
+            groupMetadataCache
+        );
 
-                        result = await evalFunc(
-                            sock,
-                            from,
-                            m,
-                            plugins,
-                            userSessions,
-                            config,
-                            fs,
-                            path,
-                            util,
-                            colors,
-                            loadPlugins,
-                            saveSessions,
-                            loadSessions,
-                            isGroup,
-                            groupMetadataCache
-                        );
-                    }
+        const output = util.inspect(result, { depth: 2 });
 
-                    const output = util.inspect(result, { depth: 2 });
+        await sock.sendMessage(from, {
+            text: `✅ Eval:\n\n${output}`
+        });
+    } catch (error) {
+        console.error(colors.red("❌ Eval:"), error);
 
-                    await sock.sendMessage(from, {
-                        text: `✅ Eval:\n\n${output}`
-                    });
-                } catch (error) {
-                    console.error(colors.red("❌ Eval:"), error);
-
-                    await sock.sendMessage(from, {
-                        text: `❌ Eval Error:\n\n${error.message}`
-                    });
-                }
-                return;
-            }
+        await sock.sendMessage(from, {
+            text: `❌ Eval Error:\n\n${error.message}`
+        });
+    }
+    return;
+}
         }
 
         if (isGroup) {
