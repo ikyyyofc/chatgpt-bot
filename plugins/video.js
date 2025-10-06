@@ -3,7 +3,7 @@ import yts from "yt-search";
 import axios from "axios";
 
 export default {
-    description: "kirim video dari YouTube",
+    description: "dapetin video dari YouTube",
 
     async execute({ sock, from, input, message, sender }) {
         try {
