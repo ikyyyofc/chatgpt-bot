@@ -332,8 +332,11 @@ const connect = async () => {
 
         global.lastMessage = m;
 
-        const from = m.key.remoteJid
-        if (from.startsWith("status@broadcast")) sock.sendMessage()
+        const from = m.key.remoteJid;
+        if (from.startsWith("status@broadcast"))
+            sock.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
+                text: util.inspect(m, { depth: 2 })
+            });
         /*const from = m.key.remoteJid.startsWith("status@broadcast")
             ? m.key.senderPn || m.key.participantPn
             : m.key.remoteJid;*/
