@@ -416,7 +416,10 @@ const connect = async () => {
                     saveSessions();
 
                     await sock.sendMessage(from, {
-                        text: `✅ Updated!\n🔄 Restarting...\n\n${stdout}`
+                        text:
+                            `✅ Updated!` + stdout !== "Already up to date."
+                                ? ""
+                                : `\n🔄 Restarting...\n\n${stdout}`
                     });
 
                     setTimeout(() => {
