@@ -413,16 +413,21 @@ const connect = async () => {
 
                     const { stdout } = await execPromise("git pull");
 
+                    const isUpToDate = stdout
+                        .trim()
+                        .includes("Already up to date");
+
                     saveSessions();
 
-                    await sock.sendMessage(from, {
-                        text:
-                            `✅ Updated!` + stdout === "Already up to date."
-                                ? "Latest Version"
-                                : `\n🔄 Restarting...\n\n${stdout}`
-                    });
+                    if (isUpToDate) {
+                        await sock.sendMessage(from, {
+                            text: "✅ Updated! Latest Version"
+                        });
+                    } else {
+                        await sock.sendMessage(from, {
+                            text: `✅ Updated!\n🔄 Restarting...\n\n${stdout}`
+                        });
 
-                    if (stdout !== "Already up to date.") {
                         setTimeout(() => {
                             process.exit(0);
                         }, 1000);
