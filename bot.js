@@ -441,12 +441,23 @@ const connect = async () => {
                 return;
             }
 
-            if (command === "/eval") {
+            if (command === "/eval" || text.startsWith(">")) {
                 if (!userIsOwner) return;
 
-                console.log(colors.yellow(`⚡ /eval`));
+                let code;
+                let isReturn = false;
 
-                const code = text.slice(6).trim();
+                if (text.startsWith("=>")) {
+                    code = text.slice(2).trim();
+                    isReturn = true;
+                    console.log(colors.yellow(`⚡ => (return)`));
+                } else if (text.startsWith(">")) {
+                    code = text.slice(1).trim();
+                    console.log(colors.yellow(`⚡ >`));
+                } else {
+                    code = text.slice(6).trim();
+                    console.log(colors.yellow(`⚡ /eval`));
+                }
 
                 if (!code) {
                     await sock.sendMessage(from, {
@@ -458,42 +469,81 @@ const connect = async () => {
                 try {
                     let result;
 
-                    const evalFunc = new Function(
-                        "sock",
-                        "from",
-                        "m",
-                        "plugins",
-                        "userSessions",
-                        "config",
-                        "fs",
-                        "path",
-                        "util",
-                        "colors",
-                        "loadPlugins",
-                        "saveSessions",
-                        "loadSessions",
-                        "isGroup",
-                        "groupMetadataCache",
-                        `return (async () => { ${code} })()`
-                    );
+                    if (isReturn) {
+                        const evalFunc = new Function(
+                            "sock",
+                            "from",
+                            "m",
+                            "plugins",
+                            "userSessions",
+                            "config",
+                            "fs",
+                            "path",
+                            "util",
+                            "colors",
+                            "loadPlugins",
+                            "saveSessions",
+                            "loadSessions",
+                            "isGroup",
+                            "groupMetadataCache",
+                            `return (async () => { return ${code} })()`
+                        );
 
-                    result = await evalFunc(
-                        sock,
-                        from,
-                        m,
-                        plugins,
-                        userSessions,
-                        config,
-                        fs,
-                        path,
-                        util,
-                        colors,
-                        loadPlugins,
-                        saveSessions,
-                        loadSessions,
-                        isGroup,
-                        groupMetadataCache
-                    );
+                        result = await evalFunc(
+                            sock,
+                            from,
+                            m,
+                            plugins,
+                            userSessions,
+                            config,
+                            fs,
+                            path,
+                            util,
+                            colors,
+                            loadPlugins,
+                            saveSessions,
+                            loadSessions,
+                            isGroup,
+                            groupMetadataCache
+                        );
+                    } else {
+                        const evalFunc = new Function(
+                            "sock",
+                            "from",
+                            "m",
+                            "plugins",
+                            "userSessions",
+                            "config",
+                            "fs",
+                            "path",
+                            "util",
+                            "colors",
+                            "loadPlugins",
+                            "saveSessions",
+                            "loadSessions",
+                            "isGroup",
+                            "groupMetadataCache",
+                            `return (async () => { ${code} })()`
+                        );
+
+                        result = await evalFunc(
+                            sock,
+                            from,
+                            m,
+                            plugins,
+                            userSessions,
+                            config,
+                            fs,
+                            path,
+                            util,
+                            colors,
+                            loadPlugins,
+                            saveSessions,
+                            loadSessions,
+                            isGroup,
+                            groupMetadataCache
+                        );
+                    }
 
                     const output = util.inspect(result, { depth: 2 });
 
