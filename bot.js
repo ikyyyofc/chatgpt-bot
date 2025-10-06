@@ -221,7 +221,7 @@ const connect = async () => {
                     "IKYYCHAT"
                 );
                 console.log(
-                    colors.green(`Pairing Code:`) + colors.yellow(code)
+                    colors.green(`Pairing Code: `) + colors.yellow(code)
                 );
             } catch (err) {
                 console.error(`Gagal ambil pairing code: ${err}`);
