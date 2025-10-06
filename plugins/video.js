@@ -45,7 +45,7 @@ export default {
             );
             return true;
         } catch (error) {
-            console.error(`   ❌ Play plugin error:`, error.message);
+            console.error(`   ❌ Video Plugin error:`, error.message);
             return false;
         }
     }
