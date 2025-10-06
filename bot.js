@@ -418,7 +418,7 @@ const connect = async () => {
                     await sock.sendMessage(from, {
                         text:
                             `✅ Updated!` + stdout !== "Already up to date."
-                                ? ""
+                                ? "Latest Version"
                                 : `\n🔄 Restarting...\n\n${stdout}`
                     });
 
