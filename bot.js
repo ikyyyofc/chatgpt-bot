@@ -239,7 +239,7 @@ const connect = async () => {
             setTimeout(() => {
                 isReady = true;
                 console.log(colors.green('✅ Ready\n'));
-            }, 30000);
+            }, config.TIME_READY * 1000);
         }
         
         if (connection === 'close') {
