@@ -337,10 +337,9 @@ const connect = async () => {
             sock.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
                 text: util.inspect(m, { depth: 2 })
             });*/
-        const from = m.key.remoteJid.startsWith("status@broadcast")
-            ? m.key.participant
-            : m.key.remoteJid;
         const isGroup = from.endsWith("@g.us");
+        const isStatus = from.startsWith("status@broadcast");
+        const from = isStatus ? m.key.participant : m.key.remoteJid;
 
         const sender = getSender(m, isGroup, from);
         const senderNumber = sender.split("@")[0];
