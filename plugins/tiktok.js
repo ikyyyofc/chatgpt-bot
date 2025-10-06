@@ -10,7 +10,7 @@ export default {
                 console.error("Error API: ", res);
                 return false;
             }
-            sock.sendMessage(
+            await sock.sendMessage(
                 from,
                 {
                     video: {
