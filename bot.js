@@ -249,7 +249,7 @@ const connect = async () => {
     
     if (reason === DisconnectReason.loggedOut || statusCode === 401) {
         console.log(colors.red('❌ Logged out / Session expired'));
-        fs.rmSync('./session', { recursive: true, force: true });
+        fs.rmSync(`./${config.SESSION}`, { recursive: true, force: true });
         await connect();
         return;
     }
@@ -281,12 +281,12 @@ const connect = async () => {
             break;
         case 403:
             console.warn(colors.red('⚠️ Account banned. Recreating session...'));
-            fs.rmSync('./session', { recursive: true, force: true });
+            fs.rmSync(`./${config.SESSION}`, { recursive: true, force: true });
             await connect();
             break;
         case 405:
             console.warn(colors.yellow('⚠️ Not logged in. Recreating session...'));
-            fs.rmSync('./session', { recursive: true, force: true });
+            fs.rmSync(`./${config.SESSION}`, { recursive: true, force: true });
             await connect();
             break;
         default:
