@@ -422,9 +422,11 @@ const connect = async () => {
                                 : `\n🔄 Restarting...\n\n${stdout}`
                     });
 
-                    setTimeout(() => {
-                        process.exit(0);
-                    }, 1000);
+                    if (stdout !== "Already up to date.") {
+                        setTimeout(() => {
+                            process.exit(0);
+                        }, 1000);
+                    }
                 } catch (error) {
                     console.error(colors.red("❌ Update error:"), error);
                     await sock.sendMessage(from, {
