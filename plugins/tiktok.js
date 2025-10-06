@@ -15,7 +15,8 @@ export default {
                 {
                     video: {
                         url: res.data.play
-                    }
+                    },
+                    caption: `${res.data.title}\n\n@${res.data.author.unique_id}`
                 },
                 { quoted: message }
             );
