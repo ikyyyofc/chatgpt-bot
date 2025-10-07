@@ -211,7 +211,6 @@ const connect = async () => {
         cachedGroupMetadata: async jid => {
             return groupMetadataCache.get(jid);
         },
-        keepAliveIntervalMs: 5000,
         syncFullHistory: false,
         markOnlineOnConnect: true
     });
