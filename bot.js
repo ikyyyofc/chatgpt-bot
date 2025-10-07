@@ -210,7 +210,9 @@ const connect = async () => {
         logger: Pino({ level: "silent" }),
         cachedGroupMetadata: async jid => {
             return groupMetadataCache.get(jid);
-        }
+        },
+        keepAliveIntervalMs: 5000,
+        syncFullHistory: false
     });
 
     if (!sock.authState.creds.registered) {
