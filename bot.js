@@ -342,6 +342,7 @@ const connect = async () => {
         const remoteJid = m.key.remoteJid;
         const isStatus = remoteJid.startsWith("status@broadcast");
         const isGroup = remoteJid.endsWith("@g.us");
+        if (isGroup) console.log(m)
         const from = isStatus ? m.key.participant : remoteJid;
         const sender = isGroup
             ? m.key.participant
