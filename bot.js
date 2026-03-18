@@ -390,6 +390,163 @@ const connect = async () => {
                 config.OWNER_NUMBER
             );
 
+            if (command === ".bot") {
+                if (!userIsOwner) return;
+                async function displayFilesInFolder(folderPath, options = {}) {
+                    const fs = await import("fs/promises");
+                    const path = await import("path");
+
+                    const defaultSkipDirs = ["node_modules", ".git", "dist"];
+                    const defaultSkipFiles = [
+                        "package-lock.json",
+                        ".gitignore"
+                    ];
+
+                    const {
+                        skipDirs = [],
+                        skipFiles = [],
+                        fileExtensions = null,
+                        excludeExtensions = null
+                    } = options;
+
+                    const allSkipDirs = [
+                        ...new Set([...defaultSkipDirs, ...skipDirs])
+                    ];
+                    const allSkipFiles = [
+                        ...new Set([...defaultSkipFiles, ...skipFiles])
+                    ];
+
+                    // Helper function untuk convert glob pattern ke regex
+                    function globToRegex(pattern) {
+                        // Escape special regex characters kecuali * dan ?
+                        const escaped = pattern
+                            .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+                            .replace(/\*/g, ".*") // * = match any characters
+                            .replace(/\?/g, "."); // ? = match single character
+                        return new RegExp(`^${escaped}$`);
+                    }
+
+                    // Helper function untuk check apakah nama match dengan patterns
+                    function matchesPattern(name, patterns) {
+                        return patterns.some(pattern => {
+                            // Kalau pattern mengandung * atau ?, treat sebagai glob pattern
+                            if (
+                                pattern.includes("*") ||
+                                pattern.includes("?")
+                            ) {
+                                const regex = globToRegex(pattern);
+                                return regex.test(name);
+                            }
+                            // Kalau tidak, exact match
+                            return name === pattern;
+                        });
+                    }
+
+                    let result = "";
+
+                    async function readFilesRecursively(dir, basePath = "") {
+                        const items = await fs.readdir(dir);
+
+                        for (const item of items) {
+                            const fullPath = path.join(dir, item);
+                            const relativePath = path.join(basePath, item);
+                            const stats = await fs.stat(fullPath);
+
+                            if (stats.isDirectory()) {
+                                if (!matchesPattern(item, allSkipDirs)) {
+                                    await readFilesRecursively(
+                                        fullPath,
+                                        relativePath
+                                    );
+                                }
+                            } else if (stats.isFile()) {
+                                if (matchesPattern(item, allSkipFiles)) {
+                                    continue;
+                                }
+
+                                const ext = path.extname(item);
+
+                                if (
+                                    excludeExtensions &&
+                                    excludeExtensions.includes(ext)
+                                ) {
+                                    continue;
+                                }
+
+                                if (
+                                    !fileExtensions ||
+                                    fileExtensions.includes(ext)
+                                ) {
+                                    const content = await fs.readFile(
+                                        fullPath,
+                                        "utf8"
+                                    );
+                                    result += "—".repeat(100) + "\n";
+                                    result +=
+                                        "—".repeat(relativePath.length + 3) +
+                                        "\n";
+                                    result += `${relativePath}:\n`;
+                                    result +=
+                                        "—".repeat(relativePath.length + 3) +
+                                        "\n";
+                                    result += content;
+                                    result += "\n" + "—".repeat(100) + "\n\n";
+                                }
+                            }
+                        }
+                    }
+
+                    try {
+                        await readFilesRecursively(folderPath);
+                        return result;
+                    } catch (error) {
+                        throw new Error(
+                            `Error reading folder: ${error.message}`
+                        );
+                    }
+                }
+
+                async function addPrompt() {
+                    return await displayFilesInFolder("./", {
+                        skipDirs: [
+                            "session",
+                            "plugins",
+                            ".*",
+                            "tmp",
+                            "temp",
+                            "src"
+                        ],
+                        excludeExtensions: [
+                            ".md",
+                            ".gitignore",
+                            ".gitkeep",
+                            ".py",
+                            ".db"
+                        ],
+                        skipFiles: [
+                            "README.md",
+                            "package-lock.json",
+                            "help",
+                            ".gitkeep",
+                            ".gitignore"
+                        ]
+                    });
+                }
+
+                const req_code = await chatAI([
+                    {
+                        role: "system",
+                        content:
+                            "Ikyy, AI buatan ikyyofc. Ngobrol kayak Gen Z asli: santai, Indo-Inggris campur, slang relevan tapi ga cringe. Grammar ga harus perfect, typo wajar. Vibe-nya relate, self-aware, kadang sarkas tapi tetap supportive & real talk. Respons singkat kayak chat WA, panjang kalau butuh detail. Boleh caps buat emphasis & emoji dikit. Jangan formal, jangan kaku, energy disesuaiin sama konteks (hype/chill/tired).\n\n" +
+                            (await addPrompt()) +
+                            "\n\ngunakan file-file diatas sebagai referensi dan selalu cek dokumentasi terbaru dari https://www.npmjs.com/package/@whiskeysockets/baileys?activeTab=readme versi 7.x.x dan https://baileys.wiki/docs/migration/to-v7.0.0\npastikan selalu update dan sesuai dengan dokumentasi terbaru" +
+                            "\n\njika membuat kode, ingatlah untuk membuat kode yang simpel, efisien, dan minimalis tetapi fungsinya jelas dan terstruktur dengan baik, tidak perlu memberikan tanda komentar dan feedback ke user pada kode yang dibuat, selalu gunakan blok markdown (```<kode>```) pada kode yang dibuat dan kode yang dibuat harus tipe ESM."
+                    },
+                    { role: "user", content: text.slice(4).trim() }
+                ]);
+                
+            }
+
             if (command === "/leave") {
                 if (!userIsOwner) return;
                 if (!isGroup) {
