@@ -199,7 +199,6 @@ const connect = async () => {
 
     console.log(colors.green("Connecting..."));
     const { state, saveCreds } = await useSQLiteAuthState("./session.db");
-    
 
     const sock = makeWASocket({
         auth: state,
@@ -328,7 +327,7 @@ const connect = async () => {
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const m = messages[0];
-        console.log(m)
+        console.log(m);
         if (!m.message) return;
 
         global.lastMessage = m;
@@ -342,7 +341,9 @@ const connect = async () => {
         const isStatus = remoteJid.startsWith("status@broadcast");
         const isGroup = remoteJid.endsWith("@g.us");
         const from = isStatus ? m.key.participant : remoteJid;
-        const sender = isGroup ? m.key.participant : m.key.remoteJidAlt || sock.user.id;
+        const sender = isGroup
+            ? m.key.participant
+            : m.key.remoteJidAlt || sock.user.id;
         const senderNumber = sender.split("@")[0];
 
         let text =
