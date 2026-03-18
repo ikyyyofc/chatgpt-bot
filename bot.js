@@ -525,12 +525,14 @@ const connect = async () => {
                             ".gitignore",
                             ".gitkeep",
                             ".py",
-                            ".db"
+                            ".db",
+                            ".db-journal"
                         ],
                         skipFiles: [
                             "README.md",
                             "package-lock.json",
                             "help",
+                            "participant_store.json",
                             ".gitkeep",
                             ".gitignore"
                         ]
