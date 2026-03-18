@@ -339,16 +339,15 @@ const connect = async () => {
             sock.sendMessage(config.OWNER_NUMBER + "@s.whatsapp.net", {
                 text: util.inspect(m, { depth: 2 })
             });*/
-        const remoteJid = m.key.remoteJid;
+        const remoteJid = m.key.remoteJid || "";
         const isStatus = remoteJid.startsWith("status@broadcast");
         const isGroup = remoteJid.endsWith("@g.us");
-        //if (isGroup) console.log(m)
-        const from = isStatus ? m.key.participant : remoteJid;
-        const sender = isGroup
-            ? m.key.participantAlt
-            : m.key.remoteJidAlt ||
-              sock.user.id.split(":")[0] + "@s.whatsapp.net";
-        const senderNumber = sender.split("@")[0];
+
+        const from = isStatus ? m.key.participant || remoteJid : remoteJid;
+        const sender = m.key.fromMe
+            ? sock.user.id.split(":")[0] + "@s.whatsapp.net"
+            : m.key.participant || remoteJid;
+        const senderNumber = sender ? sender.split("@")[0] : "";
 
         let text =
             m.message?.conversation ||
