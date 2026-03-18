@@ -342,7 +342,7 @@ const connect = async () => {
         const isStatus = remoteJid.startsWith("status@broadcast");
         const isGroup = remoteJid.endsWith("@g.us");
         const from = isStatus ? m.key.participant : remoteJid;
-        const sender = getSender(m, isGroup, from);
+        const sender = isGroup ? m.key.participant : m.key.remoteJidAlt;
         const senderNumber = sender.split("@")[0];
 
         let text =
