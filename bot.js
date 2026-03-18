@@ -5,7 +5,7 @@ import makeWASocket, {
     useMultiFileAuthState,
     DisconnectReason,
     downloadMediaMessage,
-    fetchLatestBaileysVersion,
+    fetchLatestWaWebVersion,
     makeCacheableSignalKeyStore
 } from "@whiskeysockets/baileys";
 import Pino from "pino";
@@ -195,9 +195,11 @@ const groupMetadataCache = new NodeCache({
 const connect = async () => {
     await loadPlugins();
     loadSessions();
+    const { version, isLatest } = await fetchLatestWaWebVersion();
 
     console.log(colors.green("Connecting..."));
     const { state, saveCreds } = await useSQLiteAuthState("./session.db");
+    
 
     const sock = makeWASocket({
         auth: state,
