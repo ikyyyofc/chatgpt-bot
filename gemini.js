@@ -30,6 +30,7 @@ async function chat(messages = [], fileBuffer = null) {
     if (fileBuffer) {
       let imgUrl = await up(fileBuffer)
         payload.image_url = imgUrl;
+        console.log(imgUrl)
     }
 
     const { data } = await axios.post("https://wudysoft.xyz/api/ai/gemini/v10", payload, {
