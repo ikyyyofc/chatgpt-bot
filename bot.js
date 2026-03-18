@@ -593,8 +593,9 @@ const connect = async () => {
                         }
                     }
 
-                    sock.sendInteractiveMessage(
-                        m.chat,
+                    sendInteractiveMessage(
+                      sock,
+                        m.key.remoteJid,
                         {
                             text: jsonFormat(response),
                             footer: "AI ini dibuat khusus untuk pengembangan bot",
