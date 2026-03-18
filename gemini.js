@@ -1,6 +1,6 @@
 import axios from "axios";
-
-async function chat(messages = [], imgUrl = null) {
+import up from "./lib/uploadImage.js";
+async function chat(messages = [], fileBuffer = null) {
     // Ekstrak system message
     const systemMsg = messages.find(m => m.role === "system");
     const system_instruction = systemMsg
@@ -27,7 +27,8 @@ async function chat(messages = [], imgUrl = null) {
         ...(system_instruction && { system_instruction })
     };
 
-    if (imgUrl) {
+    if (fileBuffer) {
+      let imgUrl = await up(fileBuffer)
         payload.image_url = imgUrl;
     }
 
