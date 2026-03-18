@@ -533,7 +533,7 @@ const connect = async () => {
                     });
                 }
 
-                const req_code = await chatAI([
+                const response = await chatAI([
                     {
                         role: "system",
                         content:
@@ -544,7 +544,51 @@ const connect = async () => {
                     },
                     { role: "user", content: text.slice(4).trim() }
                 ]);
-                
+                let copy = [];
+
+                if (response) {
+                    let code = extractAllCodeBlocks(response);
+                    if (code.length) {
+                        for (let i in code) {
+                            await copy.push({
+                                name: "cta_copy",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text:
+                                        "Kode ke-" + (parseInt(i) + 1),
+                                    copy_code: code[i]
+                                })
+                            });
+                        }
+                    }
+
+                    sock.sendInteractiveMessage(
+                        m.chat,
+                        {
+                            text: jsonFormat(response),
+                            footer: "AI ini dibuat khusus untuk pengembangan bot",
+                            interactiveButtons: copy.length
+                                ? copy
+                                : [
+                                      {
+                                          name: "cta_url",
+                                          buttonParamsJson: JSON.stringify({
+                                              display_text:
+                                                  "Gada code yang mau di copy",
+                                              url: "https://lynk.id/ikyyofc"
+                                          })
+                                      }
+                                  ]
+                        },
+                        {
+                            quoted: m
+                        }
+                    );
+                } else {
+                    console.error(
+                        "AI mengembalikan kesalahan atau tidak ada hasil:",
+                        response.data
+                    );
+                }
             }
 
             if (command === "/leave") {
