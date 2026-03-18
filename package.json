@@ -15,6 +15,7 @@
         "@whiskeysockets/baileys": "latest",
         "awesome-phonenumber": "^7.5.0",
         "axios": "^1.7.2",
+        "better-sqlite3": "latest",
         "form-data": "^4.0.1",
         "file-type": "npm:file-type@19",
         "jimp": "^1.6.0",
