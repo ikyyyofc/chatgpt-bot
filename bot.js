@@ -209,7 +209,8 @@ const connect = async () => {
             return groupMetadataCache.get(jid);
         },
         syncFullHistory: false,
-        markOnlineOnConnect: true
+        markOnlineOnConnect: true,
+        version
     });
 
     if (!sock.authState.creds.registered) {
