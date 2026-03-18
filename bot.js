@@ -328,6 +328,7 @@ const connect = async () => {
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const m = messages[0];
+        console.log(m)
         if (!m.message) return;
 
         global.lastMessage = m;
