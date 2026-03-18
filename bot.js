@@ -617,12 +617,15 @@ const connect = async () => {
                             quoted: m
                         }
                     );
+                    return;
                 } else {
                     console.error(
                         "AI mengembalikan kesalahan atau tidak ada hasil:",
                         response.data
                     );
+                    return;
                 }
+                return;
             }
 
             if (command === "/leave") {
