@@ -345,7 +345,7 @@ const connect = async () => {
         if (isGroup) console.log(m)
         const from = isStatus ? m.key.participant : remoteJid;
         const sender = isGroup
-            ? m.key.participant
+            ? m.key.participantAlt
             : m.key.remoteJidAlt ||
               sock.user.id.split(":")[0] + "@s.whatsapp.net";
         const senderNumber = sender.split("@")[0];
