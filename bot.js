@@ -329,7 +329,7 @@ const connect = async () => {
         const m = messages[0];
         // console.log(m);
         if (!m.message) return;
-        if (m.key.id.startsWith("3EBO")) return;
+        if (m.key.id.startsWith("3EB0")) return;
 
         global.lastMessage = m;
 
