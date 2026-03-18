@@ -1,4 +1,6 @@
 // config.js
+import { format } from "util";
+
 export default {
    // folder session
    SESSION: "session.db",
@@ -55,4 +57,18 @@ Kalau bahas hal teknis, jelasin dengan bahasa sederhana dan santai.`,
     // human-like delays (dalam milidetik)
     DELAY_BEFORE_READ: [1000, 3000], // delay 1-3 detik sebelum baca pesan
     DELAY_BEFORE_TYPING: [2000, 5000], // delay 2-5 detik setelah baca sebelum ngetik
+};
+
+global.jsonFormat = obj => {
+    try {
+        let print =
+            obj &&
+            (obj.constructor.name === "Object" ||
+                obj.constructor.name === "Array")
+                ? format(JSON.stringify(obj, null, 2))
+                : format(obj);
+        return print;
+    } catch {
+        return format(obj);
+    }
 };
