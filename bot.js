@@ -534,7 +534,8 @@ const connect = async () => {
                             "help",
                             "participant_store.json",
                             ".gitkeep",
-                            ".gitignore"
+                            ".gitignore",
+                            "sessions.json"
                         ]
                     });
                 }
