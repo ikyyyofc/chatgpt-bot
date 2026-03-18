@@ -197,7 +197,7 @@ const connect = async () => {
     loadSessions();
 
     console.log(colors.green("Connecting..."));
-    const { state, saveCreds } = await useMultiFileAuthState(config.SESSION);
+    const { state, saveCreds } = await useSQLiteAuthState("./session.db");
 
     const sock = makeWASocket({
         auth: {
