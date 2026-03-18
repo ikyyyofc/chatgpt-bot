@@ -363,6 +363,7 @@ const connect = async () => {
             text.trim().startsWith("/") ||
             text.trim().startsWith(">") ||
             text.trim().startsWith("=>") ||
+            text.trim().startsWith(".") ||
             text.trim().startsWith("$");
 
         if (isCommand) {
