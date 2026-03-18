@@ -594,7 +594,7 @@ const connect = async () => {
                     }
 
                     sendInteractiveMessage(
-                      sock,
+                        sock,
                         m.key.remoteJid,
                         {
                             text: jsonFormat(response),
