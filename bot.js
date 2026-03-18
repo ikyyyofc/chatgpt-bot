@@ -327,7 +327,7 @@ const connect = async () => {
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const m = messages[0];
-        console.log(m);
+       // console.log(m);
         if (!m.message) return;
         if (m.key.id.startsWith == "3EBO") return;
 
