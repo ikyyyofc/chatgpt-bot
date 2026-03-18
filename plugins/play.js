@@ -1,75 +1,120 @@
-// plugins/play.js
 import yts from 'yt-search';
-import axios from 'axios';
+
+const UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36';
+
+async function getToken(url) {
+    const r = await fetch(`https://v2.ytmp3.wtf/button/?url=${encodeURIComponent(url)}`, {
+        headers: {
+            'user-agent': UA,
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'referer': 'https://v2.ytmp3.wtf/'
+        }
+    });
+
+    const html = await r.text();
+    const cookie = r.headers.get('set-cookie') || '';
+    const phpsessid = cookie.match(/PHPSESSID=([^;]+)/)?.[1];
+    const tokenId = html.match(/'token_id':\s*'([^']+)'/)?.[1];
+    const validTo = html.match(/'token_validto':\s*'([^']+)'/)?.[1];
+
+    if (!phpsessid || !tokenId || !validTo) throw new Error('Gagal mengambil session token');
+    return { phpsessid, tokenId, validTo };
+}
+
+async function startConvert(url, token) {
+    const body = new URLSearchParams({
+        url,
+        convert: 'gogogo',
+        token_id: token.tokenId,
+        token_validto: token.validTo
+    });
+
+    const r = await fetch('https://v2.ytmp3.wtf/convert/', {
+        method: 'POST',
+        headers: {
+            'user-agent': UA,
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'referer': `https://v2.ytmp3.wtf/button/?url=${encodeURIComponent(url)}`,
+            'cookie': `PHPSESSID=${token.phpsessid}`
+        },
+        body
+    });
+
+    const j = await r.json();
+    if (!j.jobid) throw new Error(j.error || 'Job ID tidak ditemukan');
+    return j.jobid;
+}
+
+async function poll(jobid, token) {
+    for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const r = await fetch(`https://v2.ytmp3.wtf/convert/?jobid=${jobid}&time=${Date.now()}`, {
+            headers: {
+                'user-agent': UA,
+                'referer': 'https://v2.ytmp3.wtf/',
+                'cookie': `PHPSESSID=${token.phpsessid}`
+            }
+        });
+        
+        const t = await r.text();
+        if (!t.trim().startsWith('{')) continue;
+        
+        const j = JSON.parse(t);
+        if (j.error) throw new Error(j.error);
+        if (j.ready && j.dlurl) return j.dlurl;
+    }
+    throw new Error('Request timeout');
+}
 
 export default {
-    description: 'Putar lagu dari YouTube',
-    
-    async execute({ sock, from, input, message, sender }) {
+    name: 'play',
+    description: 'Mencari dan memutar lagu dari YouTube',
+    execute: async ({ sock, from, input, message }) => {
+        if (!input) {
+            await sock.sendMessage(from, { text: 'Judul lagu tidak boleh kosong.' }, { quoted: message });
+            return;
+        }
+
         try {
-            if (!input) {
-                await sock.sendMessage(from, { text: 'kasih judul lagu dong...' });
-                return false;
+            const search = await yts(input);
+            if (!search.all || search.all.length === 0) {
+                await sock.sendMessage(from, { text: 'Lagu tidak ditemukan.' }, { quoted: message });
+                return;
             }
-
-            console.log(`   🎵 Searching: ${input}`);
             
-            // cari di youtube
-            let anu = await yts(input);
-            let f = anu.all.filter(v => !v.url.includes("@"));
+            const video = search.all.find(v => v.type === 'video');
+            if (!video) {
+                await sock.sendMessage(from, { text: 'Video tidak ditemukan.' }, { quoted: message });
+                return;
+            }
+
+            const token = await getToken(video.url);
+            const jobid = await startConvert(video.url, token);
+            const dlUrl = await poll(jobid, token);
+
+            const res = await fetch(dlUrl, { headers: { 'user-agent': UA } });
+            if (!res.ok) throw new Error('Gagal mengunduh audio');
             
-            if (!f.length) {
-                console.error("Song Not Found...")
-                return false;
-            }
+            const arrayBuffer = await res.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
 
-            const video = f[0];
-            const url = video.url;
-            const thumbnail = video.thumbnail;
-            const title = video.title;
-            const ago = video.ago;
-            const author = video.author.name;
-
-            console.log(`   ✅ Found: ${title}`);
-
-            // download pake API
-            console.log(`   ⬇️  Downloading from API...`);
-            const res = await axios.get(
-                `https://api.nekolabs.my.id/downloader/youtube/v1?url=${url}&format=mp3`
-            );
-
-            if (!res.data.status) {
-                console.error("Error API: ", res.data)
-                return false;
-            }
-
-            const downloadUrl = res.data.result.downloadUrl;
-
-            console.log(`   📤 Sending audio...`);
-
-            // kirim audio
             await sock.sendMessage(from, {
-                audio: { url: downloadUrl },
+                audio: buffer,
                 mimetype: 'audio/mpeg',
-                fileName: `${title}.mp3`,
                 contextInfo: {
                     externalAdReply: {
-                        title: title,
-                        body: `${author} | ${ago}`,
-                        thumbnailUrl: thumbnail,
+                        title: video.title,
+                        body: `Duration: ${video.timestamp} | Views: ${video.views}`,
+                        thumbnailUrl: video.thumbnail,
+                        sourceUrl: video.url,
                         mediaType: 1,
-                        showAdAttribution: false,
                         renderLargerThumbnail: true
                     }
                 }
             }, { quoted: message });
 
-            console.log(`   ✅ Audio sent to ${sender}`);
-            return true;
-
         } catch (error) {
-            console.error(`   ❌ Play plugin error:`, error.message);
-            return false;
+            await sock.sendMessage(from, { text: `Error: ${error.message}` }, { quoted: message });
         }
     }
 };
