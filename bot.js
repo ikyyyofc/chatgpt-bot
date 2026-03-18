@@ -200,13 +200,7 @@ const connect = async () => {
     const { state, saveCreds } = await useSQLiteAuthState("./session.db");
 
     const sock = makeWASocket({
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(
-                state.keys,
-                Pino().child({ level: "fatal", stream: "store" })
-            )
-        },
+        auth: state,
         browser: Browsers.ubuntu("Chrome"),
         logger: Pino({ level: "silent" }),
         cachedGroupMetadata: async jid => {
