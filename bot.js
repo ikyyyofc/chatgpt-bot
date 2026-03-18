@@ -19,6 +19,7 @@ const execPromise = util.promisify(exec);
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import NodeCache from "node-cache";
+import { useSQLiteAuthState } from "./sqliteAuthState.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
