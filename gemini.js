@@ -22,7 +22,7 @@ const SUPPORTED_MIMES = new Set([
     "video/x-flv", "video/mpg", "video/webm", "video/wmv", "video/3gpp",
     // Audio
     "audio/wav", "audio/mp3", "audio/aiff", "audio/aac",
-    "audio/ogg", "audio/flac", "audio/mpeg", "audio/ogg; codec=opus",
+    "audio/ogg", "audio/flac", "audio/mpeg", "audio/ogg; codecs=opus",
     // Dokumen
     "application/pdf",
     "text/plain", "text/html", "text/css", "text/javascript",
