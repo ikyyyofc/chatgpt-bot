@@ -1252,7 +1252,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
         }
     });
 
-    sock.ev.on("call", async call => {
+   /* sock.ev.on("call", async call => {
         const { status, id, from } = call[0];
         if (status === "offer") {
             await sock.rejectCall(id, from);
@@ -1260,7 +1260,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 text: "gausah call, nanti gw blok"
             });
         }
-    });
+    });*/
 
     process.on("SIGINT", () => {
         console.log(colors.yellow("\n⏹️  Shutting down..."));
