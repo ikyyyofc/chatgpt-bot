@@ -139,7 +139,8 @@ async function chat(messages = [], fileBuffer = null) {
             },
             tools: [
                 {
-                    googleSearch: {}
+                    googleSearch: {},
+                    urlContext: {}
                 }
             ],
             ...(systemInstructionText && {
