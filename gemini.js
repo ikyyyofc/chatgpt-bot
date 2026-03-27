@@ -96,7 +96,6 @@ async function chat(messages = [], fileBuffer = null) {
         request: {
             contents: history,
             generationConfig: {
-                maxOutputTokens: 4000,
                 temperature: 1.0
             },
             ...(systemInstructionText && {
