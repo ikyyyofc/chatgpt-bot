@@ -135,7 +135,8 @@ async function chat(messages = [], fileBuffer = null) {
         request: {
             contents: history,
             generationConfig: {
-                temperature: 1
+                temperature: 1,
+                topP: 0.95
             },
             tools: [
                 {
