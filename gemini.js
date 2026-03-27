@@ -4,7 +4,7 @@ import { fileTypeFromBuffer } from "file-type";
 const CONFIG = {
     GEMINI: {
         URL: "https://us-central1-gemmy-ai-bdc03.cloudfunctions.net/gemini",
-        MODEL: "gemini-2.5-flash-lite",
+        MODEL: "gemini-3.1-pro-preview",
         HEADERS: {
             "User-Agent": "okhttp/5.3.2",
             "Accept-Encoding": "gzip",
