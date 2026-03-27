@@ -135,7 +135,6 @@ async function chat(messages = [], fileBuffer = null) {
         request: {
             contents: history,
             generationConfig: {
-                maxOutputTokens: 1500,
                 thinkingConfig: {
                     thinkingLevel: "HIGH"
                 },
