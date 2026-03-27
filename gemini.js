@@ -1,51 +1,60 @@
 import axios from "axios";
 import { fileTypeFromBuffer } from "file-type";
 
-/**
- * Deteksi MIME type dari buffer, fallback ke "application/octet-stream"
- */
+const CONFIG = {
+    GEMINI: {
+        URL: "https://us-central1-gemmy-ai-bdc03.cloudfunctions.net/gemini",
+        MODEL: "gemini-2.5-flash-lite",
+        HEADERS: {
+            "User-Agent": "okhttp/5.3.2",
+            "Accept-Encoding": "gzip",
+            "content-type": "application/json; charset=UTF-8"
+        }
+    }
+};
+
+const SUPPORTED_MIMES = new Set([
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
+    "video/mp4", "video/mpeg", "video/mov", "video/avi", "video/x-flv", "video/mpg", "video/webm", "video/wmv", "video/3gpp",
+    "audio/wav", "audio/mp3", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/mpeg", "audio/ogg; codecs=opus",
+    "application/pdf", "text/plain", "text/html", "text/css", "text/javascript", "text/x-typescript", "text/csv", "text/markdown", "text/x-python", "application/json", "application/xml", "application/rtf"
+]);
+
 async function detectMimeType(buffer) {
     const result = await fileTypeFromBuffer(buffer);
     return result?.mime ?? "application/octet-stream";
 }
 
-/**
- * Daftar MIME type yang didukung Gemini (multimodal)
- * https://ai.google.dev/gemini-api/docs/vision
- */
-const SUPPORTED_MIMES = new Set([
-    // Gambar
-    "image/jpeg", "image/png", "image/gif", "image/webp",
-    "image/heic", "image/heif",
-    // Video
-    "video/mp4", "video/mpeg", "video/mov", "video/avi",
-    "video/x-flv", "video/mpg", "video/webm", "video/wmv", "video/3gpp",
-    // Audio
-    "audio/wav", "audio/mp3", "audio/aiff", "audio/aac",
-    "audio/ogg", "audio/flac", "audio/mpeg", "audio/ogg; codecs=opus",
-    // Dokumen
-    "application/pdf",
-    "text/plain", "text/html", "text/css", "text/javascript",
-    "text/x-typescript", "text/csv", "text/markdown",
-    "text/x-python", "application/json", "application/xml",
-    "application/rtf",
-]);
+async function getNewToken() {
+    try {
+        const response = await axios.post(
+            "https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key=AIzaSyAxof8_SbpDcww38NEQRhNh0Pzvbphh-IQ",
+            { clientType: "CLIENT_TYPE_ANDROID" },
+            {
+                headers: {
+                    "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 12; SM-S9280 Build/AP3A.240905.015.A2)",
+                    "Content-Type": "application/json",
+                    "X-Android-Package": "com.jetkite.gemmy",
+                    "X-Android-Cert": "037CD2976D308B4EFD63EC63C48DC6E7AB7E5AF2",
+                    "X-Firebase-GMPID": "1:652803432695:android:c4341db6033e62814f33f2"
+                }
+            }
+        );
+        return response.data.idToken;
+    } catch (error) {
+        return null;
+    }
+}
 
-/**
- * Chat dengan Gemini, support file attachment otomatis via MIME detection
- * @param {Array} messages - Array of { role, content } atau { role, parts }
- * @param {Buffer|null} fileBuffer - Buffer file yang ingin dilampirkan
- */
 async function chat(messages = [], fileBuffer = null) {
-    // Ekstrak system message
+    const token = await getNewToken();
+    if (!token) throw new Error("Gagal mendapatkan token autentikasi Gemmy");
+
     const systemMsg = messages.find(m => m.role === "system");
-    const system_instruction = systemMsg
-        ? (typeof systemMsg.content === "string"
-            ? systemMsg.content
-            : systemMsg.parts?.[0]?.text ?? "")
+    const systemInstructionText = systemMsg
+        ? (typeof systemMsg.content === "string" ? systemMsg.content : systemMsg.parts?.[0]?.text ?? "")
         : undefined;
 
-    // Filter non-system, normalize ke format Gemini
     const history = messages
         .filter(m => m.role !== "system")
         .map(m => ({
@@ -55,52 +64,60 @@ async function chat(messages = [], fileBuffer = null) {
                 : m.parts ?? [{ text: "" }]
         }));
 
-    // Jika ada file, inject ke parts message terakhir
     if (fileBuffer) {
         const mimeType = await detectMimeType(fileBuffer);
-
+        
         if (!SUPPORTED_MIMES.has(mimeType)) {
             throw new Error(`File type "${mimeType}" tidak didukung oleh Gemini.`);
         }
 
         const base64Data = fileBuffer.toString("base64");
-
         const filePart = {
-            inline_data: {
-                mime_type: mimeType,
-                data: base64Data,
+            inlineData: {
+                mimeType: mimeType,
+                data: base64Data
             }
         };
 
-        // Pastikan ada minimal 1 pesan user di history
         if (history.length === 0) {
             history.push({ role: "user", parts: [] });
         }
 
         const lastMsg = history[history.length - 1];
-
-        // Kalau role terakhir bukan user, tambahkan message user baru
         if (lastMsg.role !== "user") {
             history.push({ role: "user", parts: [filePart] });
         } else {
-            // Inject file ke parts pesan user terakhir
             lastMsg.parts.push(filePart);
         }
     }
 
     const payload = {
-        action: "chat",
-        messages: history,
-        search: true,
-        model: "gemini-3.1-pro-preview",
-        ...(system_instruction && { system_instruction })
+        model: CONFIG.GEMINI.MODEL,
+        request: {
+            contents: history,
+            generationConfig: {
+                maxOutputTokens: 4000,
+                temperature: 1.0
+            },
+            ...(systemInstructionText && {
+                systemInstruction: {
+                    role: "user",
+                    parts: [{ text: systemInstructionText }]
+                }
+            })
+        },
+        stream: false
     };
 
-    const { data } = await axios.post("https://wudysoft.xyz/api/ai/gemini/v10", payload, {
-        headers: { "Content-Type": "application/json" }
-    });
+    const headers = { ...CONFIG.GEMINI.HEADERS, authorization: `Bearer ${token}` };
 
-    return data.result.text;
+    const { data } = await axios.post(CONFIG.GEMINI.URL, payload, { headers });
+
+    if (data?.candidates && data.candidates.length > 0) {
+        return data.candidates[0].content.parts[0].text;
+    }
+
+    throw new Error("No response candidates found");
 }
 
 export default chat;
