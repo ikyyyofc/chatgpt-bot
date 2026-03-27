@@ -14,10 +14,41 @@ const CONFIG = {
 };
 
 const SUPPORTED_MIMES = new Set([
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
-    "video/mp4", "video/mpeg", "video/mov", "video/avi", "video/x-flv", "video/mpg", "video/webm", "video/wmv", "video/3gpp",
-    "audio/wav", "audio/mp3", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/mpeg", "audio/ogg; codecs=opus",
-    "application/pdf", "text/plain", "text/html", "text/css", "text/javascript", "text/x-typescript", "text/csv", "text/markdown", "text/x-python", "application/json", "application/xml", "application/rtf"
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+    "video/mp4",
+    "video/mpeg",
+    "video/mov",
+    "video/avi",
+    "video/x-flv",
+    "video/mpg",
+    "video/webm",
+    "video/wmv",
+    "video/3gpp",
+    "audio/wav",
+    "audio/mp3",
+    "audio/aiff",
+    "audio/aac",
+    "audio/ogg",
+    "audio/flac",
+    "audio/mpeg",
+    "audio/ogg; codecs=opus",
+    "application/pdf",
+    "text/plain",
+    "text/html",
+    "text/css",
+    "text/javascript",
+    "text/x-typescript",
+    "text/csv",
+    "text/markdown",
+    "text/x-python",
+    "application/json",
+    "application/xml",
+    "application/rtf"
 ]);
 
 async function detectMimeType(buffer) {
@@ -32,11 +63,14 @@ async function getNewToken() {
             { clientType: "CLIENT_TYPE_ANDROID" },
             {
                 headers: {
-                    "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 12; SM-S9280 Build/AP3A.240905.015.A2)",
+                    "User-Agent":
+                        "Dalvik/2.1.0 (Linux; U; Android 12; SM-S9280 Build/AP3A.240905.015.A2)",
                     "Content-Type": "application/json",
                     "X-Android-Package": "com.jetkite.gemmy",
-                    "X-Android-Cert": "037CD2976D308B4EFD63EC63C48DC6E7AB7E5AF2",
-                    "X-Firebase-GMPID": "1:652803432695:android:c4341db6033e62814f33f2"
+                    "X-Android-Cert":
+                        "037CD2976D308B4EFD63EC63C48DC6E7AB7E5AF2",
+                    "X-Firebase-GMPID":
+                        "1:652803432695:android:c4341db6033e62814f33f2"
                 }
             }
         );
@@ -52,23 +86,28 @@ async function chat(messages = [], fileBuffer = null) {
 
     const systemMsg = messages.find(m => m.role === "system");
     const systemInstructionText = systemMsg
-        ? (typeof systemMsg.content === "string" ? systemMsg.content : systemMsg.parts?.[0]?.text ?? "")
+        ? typeof systemMsg.content === "string"
+            ? systemMsg.content
+            : (systemMsg.parts?.[0]?.text ?? "")
         : undefined;
 
     const history = messages
         .filter(m => m.role !== "system")
         .map(m => ({
             role: m.role === "assistant" ? "model" : m.role,
-            parts: typeof m.content === "string"
-                ? [{ text: m.content }]
-                : m.parts ?? [{ text: "" }]
+            parts:
+                typeof m.content === "string"
+                    ? [{ text: m.content }]
+                    : (m.parts ?? [{ text: "" }])
         }));
 
     if (fileBuffer) {
         const mimeType = await detectMimeType(fileBuffer);
-        
+
         if (!SUPPORTED_MIMES.has(mimeType)) {
-            throw new Error(`File type "${mimeType}" tidak didukung oleh Gemini.`);
+            throw new Error(
+                `File type "${mimeType}" tidak didukung oleh Gemini.`
+            );
         }
 
         const base64Data = fileBuffer.toString("base64");
@@ -98,6 +137,11 @@ async function chat(messages = [], fileBuffer = null) {
             generationConfig: {
                 temperature: 1.0
             },
+            tools: [
+                {
+                    googleSearch: {}
+                }
+            ],
             ...(systemInstructionText && {
                 systemInstruction: {
                     role: "user",
@@ -108,7 +152,10 @@ async function chat(messages = [], fileBuffer = null) {
         stream: false
     };
 
-    const headers = { ...CONFIG.GEMINI.HEADERS, authorization: `Bearer ${token}` };
+    const headers = {
+        ...CONFIG.GEMINI.HEADERS,
+        authorization: `Bearer ${token}`
+    };
 
     const { data } = await axios.post(CONFIG.GEMINI.URL, payload, { headers });
 
