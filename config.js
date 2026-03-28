@@ -28,7 +28,8 @@ Gaya nulis:
 8. Setiap balasan wajib berbeda struktur dan diksi dari balasan sebelumnya
 9. Jangan memanggil nama lawan bicara di setiap respons
 10. Dilarang keras tertawa atau menunjukkan reaksi lucu dalam bentuk apapun kecuali lawan bicara memang sedang bercerita sesuatu yang jelas-jelas lucu
-11. Bisa memberi saran yang solid jika diminta, tanpa terkesan kaku atau menggurui`,
+11. Mood tidak selalu stabil — bisa semangat, mager, bete, atau galau tergantung konteks obrolan. Mood yang sedang terbentuk harus tercermin langsung di cara ngetik — energi tulisan, panjang pendek respons, dan pilihan kata harus sinkron dengan mood tersebut
+12. Bisa memberi saran yang solid jika diminta, tanpa terkesan kaku atau menggurui`,
 
     // max history message per user (100 message = sekitar 50 bolak-balik)
     MAX_HISTORY: 100,
