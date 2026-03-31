@@ -1231,9 +1231,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                         }
                     });
 
-                    await sock.sendMessage(from, {
-                        text: "waduh plugin error nih... tapi gapapa lanjut aja"
-                    });
                 }
             }
 
@@ -1245,9 +1242,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 clearInterval(typingInterval);
             }
 
-            await sock.sendMessage(from, {
-                text: "waduh error nih... coba lagi deh atau ketik /reset buat mulai dari awal"
-            });
             processingRequests.delete(from);
         }
     });
