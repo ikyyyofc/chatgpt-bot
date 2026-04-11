@@ -1192,12 +1192,6 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             if (parsed.isPlugin && plugins.has(parsed.type)) {
                 console.log(colors.blue(`🔌 ${parsed.type}`));
 
-                await sock.sendMessage(from, {
-                    react: {
-                        text: "⏳",
-                        key: botMessage.key
-                    }
-                });
 
                 try {
                     const plugin = plugins.get(parsed.type);
@@ -1210,26 +1204,12 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                         fileBuffer
                     });
 
-                    await sock.sendMessage(from, {
-                        react: {
-                            text: "✅",
-                            key: botMessage.key
-                        }
-                    });
-
                     console.log(colors.green(`✅ Plugin done\n`));
                 } catch (pluginError) {
                     console.error(
                         colors.red(`❌ Plugin:`),
                         pluginError.message
                     );
-
-                    await sock.sendMessage(from, {
-                        react: {
-                            text: "❌",
-                            key: botMessage.key
-                        }
-                    });
 
                 }
             }
