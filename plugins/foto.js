@@ -116,11 +116,14 @@ async function getNewToken() {
             { clientType: "CLIENT_TYPE_ANDROID" },
             {
                 headers: {
-                    "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 12; SM-S9280 Build/AP3A.240905.015.A2)",
+                    "User-Agent":
+                        "Dalvik/2.1.0 (Linux; U; Android 12; SM-S9280 Build/AP3A.240905.015.A2)",
                     "Content-Type": "application/json",
                     "X-Android-Package": "com.jetkite.gemmy",
-                    "X-Android-Cert": "037CD2976D308B4EFD63EC63C48DC6E7AB7E5AF2",
-                    "X-Firebase-GMPID": "1:652803432695:android:c4341db6033e62814f33f2"
+                    "X-Android-Cert":
+                        "037CD2976D308B4EFD63EC63C48DC6E7AB7E5AF2",
+                    "X-Firebase-GMPID":
+                        "1:652803432695:android:c4341db6033e62814f33f2"
                 }
             }
         );
@@ -185,7 +188,8 @@ pose · expression · clothing · hair arrangement · environment · lighting ·
         headers: { ...CONFIG.GEMINI.HEADERS, authorization: `Bearer ${token}` }
     });
 
-    if (!data?.candidates?.length) throw new Error("No response candidates found");
+    if (!data?.candidates?.length)
+        throw new Error("No response candidates found");
 
     const parts = data.candidates[0].content.parts;
     const imagePart = parts.find(p => p.inlineData?.data);
@@ -202,13 +206,19 @@ export default {
     description: "Mengirimkan foto karakter AI sesuai konteks obrolan",
     execute: async ({ sock, from, input, message }) => {
         const refPath = path.resolve(process.cwd(), "src/char_ai.jpeg");
-        
+
         if (!existsSync(refPath)) {
-            await sock.sendMessage(from, { text: "maaf ya, foto referensiku lagi error nih..." }, { quoted: message });
+            await sock.sendMessage(
+                from,
+                { text: "maaf ya, foto referensiku lagi error nih..." },
+                { quoted: message }
+            );
             return;
         }
 
-        const userRequest = input ? `Buatkan scene berdasarkan request ini: ${input}` : "Buatkan scene selfie casual yang natural dan random";
+        const userRequest = input
+            ? `Buatkan scene berdasarkan request ini: ${input}`
+            : "Buatkan scene selfie casual yang natural dan random";
         const refBuffer = await fs.readFile(refPath);
 
         const finalPrompt = await chatAI([
@@ -226,7 +236,7 @@ export default {
 
                 await sock.sendMessage(
                     from,
-                    { image: imageBuffer, caption: "nih fotonyaa 📸" },
+                    { image: imageBuffer },
                     { quoted: message }
                 );
                 break;
@@ -234,7 +244,9 @@ export default {
                 if (attempt >= maxRetries) {
                     await sock.sendMessage(
                         from,
-                        { text: "yahh maaf fotonya gagal dikirim, coba lagi nanti yaa" },
+                        {
+                            text: "yahh maaf fotonya gagal dikirim, coba lagi nanti yaa"
+                        },
                         { quoted: message }
                     );
                 }
