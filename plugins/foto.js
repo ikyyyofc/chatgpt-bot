@@ -175,7 +175,7 @@ pose · expression · clothing · hair arrangement · environment · lighting ·
             contents: [{ role: "user", parts: partsUser }],
             generationConfig: {
                 responseModalities: ["IMAGE"],
-                imageConfig: { imageSize: "2K" },
+               // imageConfig: { imageSize: "2K" },
                 thinkingConfig: { thinkingLevel: "HIGH" },
                 temperature: 0
             },
