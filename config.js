@@ -5,7 +5,7 @@ export default {
     // folder session
     SESSION: "session.db",
     // nomor bot yang akan dipasangkan pairing
-    PAIRING_NUMBER: "6283847682658",
+    PAIRING_NUMBER: "6283160432742",
     // nomor owner (tanpa @s.whatsapp.net, contoh: 628123456789)
     OWNER_NUMBER: "6287866255637", // ganti dengan nomor lu
 
