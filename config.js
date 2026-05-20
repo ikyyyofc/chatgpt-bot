@@ -3,7 +3,7 @@ import { format } from "util";
 
 export default {
     // folder session
-    SESSION: "session.db",
+    SESSION: "session",
     // nomor bot yang akan dipasangkan pairing
     PAIRING_NUMBER: "6283160432742",
     // nomor owner (tanpa @s.whatsapp.net, contoh: 628123456789)

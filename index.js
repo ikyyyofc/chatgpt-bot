@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { createInterface } from 'readline';
-import { setupMaster, fork } from 'cluster';
+import { setupPrimary, fork } from 'cluster';
 import { watchFile, unwatchFile, readFileSync } from 'fs';
 
 const rl = createInterface(process.stdin, process.stdout);
@@ -38,7 +38,7 @@ function start(file) {
   let args = [join(__dirname, file), ...process.argv.slice(2)];
   console.log(`\n🚀 Running: ${args.join(' ')}\n`);
 
-  setupMaster({ exec: args[0], args: args.slice(1) });
+  setupPrimary({ exec: args[0], args: args.slice(1) });
   let p = fork();
 
   p.on('message', data => {

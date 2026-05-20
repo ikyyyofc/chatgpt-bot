@@ -19,7 +19,7 @@ const execPromise = util.promisify(exec);
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import NodeCache from "node-cache";
-import { useSQLiteAuthState } from "./lib/sqliteAuthState.js";
+
 import { sendButtons, sendInteractiveMessage } from "./lib/button.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -64,6 +64,7 @@ async function loadPlugins() {
                 if (plugin.execute) {
                     plugins.set(pluginName, {
                         name: pluginName,
+                        command: plugin.command || [],
                         description: plugin.description || "No description",
                         execute: plugin.execute
                     });
@@ -96,55 +97,19 @@ function loadSessions() {
     }
 }
 
+let saveTimeout = null;
 function saveSessions() {
-    try {
-        const data = JSON.stringify([...userSessions]);
-        fs.writeFileSync(SESSION_FILE, data, "utf8");
-    } catch (error) {
-        console.error(colors.red("❌ Save error:"), error);
-    }
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+        try {
+            const data = JSON.stringify([...userSessions]);
+            await fs.promises.writeFile(SESSION_FILE, data, "utf8");
+        } catch (error) {
+            console.error(colors.red("❌ Save error:"), error);
+        }
+    }, 5000);
 }
 
-function parseAIResponse(text) {
-    try {
-        let parsed = null;
-
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            parsed = JSON.parse(jsonMatch[0]);
-        } else {
-            parsed = JSON.parse(text);
-        }
-
-        if (!parsed.type || !parsed.output) {
-            return {
-                isPlugin: false,
-                type: "chat",
-                input: "",
-                output: text,
-                rawResponse: text
-            };
-        }
-
-        const isPlugin = parsed.type !== "chat" && plugins.has(parsed.type);
-
-        return {
-            isPlugin: isPlugin,
-            type: parsed.type,
-            input: parsed.input || "",
-            output: parsed.output,
-            rawResponse: text
-        };
-    } catch (e) {
-        return {
-            isPlugin: false,
-            type: "chat",
-            input: "",
-            output: text,
-            rawResponse: text
-        };
-    }
-}
 
 const processingRequests = new Map();
 const messageQueues = new Map();
@@ -193,13 +158,26 @@ const groupMetadataCache = new NodeCache({
     useClones: false
 });
 
+let isFirstLoad = true;
 const connect = async () => {
-    await loadPlugins();
-    loadSessions();
+    if (isFirstLoad) {
+        await loadPlugins();
+        loadSessions();
+        isFirstLoad = false;
+    }
     const { version, isLatest } = await fetchLatestWaWebVersion();
 
     console.log(colors.green("Connecting..."));
-    const { state, saveCreds } = await useSQLiteAuthState("./session.db");
+    let state, saveCreds;
+    try {
+        const auth = await useMultiFileAuthState(config.SESSION);
+        state = auth.state;
+        saveCreds = auth.saveCreds;
+    } catch (err) {
+        console.error(colors.red("❌ Session file corrupted. Deleting session and retrying..."));
+        fs.rmSync(`./${config.SESSION}`, { recursive: true, force: true });
+        return connect();
+    }
 
     const sock = makeWASocket({
         auth: state,
@@ -255,8 +233,16 @@ const connect = async () => {
             const boom = new Boom(lastDisconnect?.error);
             const statusCode = boom?.output?.statusCode;
 
-            if (reason === DisconnectReason.loggedOut || statusCode === 401) {
-                console.log(colors.red("❌ Logged out / Session expired"));
+            const errorMsg = lastDisconnect?.error?.message?.toLowerCase() || "";
+            const isBadSession = 
+                statusCode === 500 || 
+                errorMsg.includes("bad mac") || 
+                errorMsg.includes("invalid mac") ||
+                errorMsg.includes("decrypt") ||
+                errorMsg.includes("corrupted");
+
+            if (reason === DisconnectReason.loggedOut || statusCode === 401 || isBadSession) {
+                console.log(colors.red(isBadSession ? "❌ Session corrupted / Invalid MAC" : "❌ Logged out / Session expired"));
                 fs.rmSync(`./${config.SESSION}`, {
                     recursive: true,
                     force: true
@@ -361,6 +347,9 @@ const connect = async () => {
             "";
 
         if (m.key.fromMe) return;
+
+
+
 
         const isCommand =
             text.trim().startsWith("/") ||
@@ -541,7 +530,7 @@ const connect = async () => {
                     });
                 }
 
-                const response = await chatAI([
+                const aiResponseObj = await chatAI([
                     {
                         role: "system",
                         content:
@@ -551,6 +540,8 @@ const connect = async () => {
                     },
                     { role: "user", content: text.slice(4).trim() }
                 ]);
+                const responseText = aiResponseObj.text || "";
+                
                 function extractAllCodeBlocks(text) {
                     const regex = /```(.*?)```/gs;
                     const matches = text.matchAll(regex);
@@ -584,8 +575,8 @@ const connect = async () => {
                 }
                 let copy = [];
 
-                if (response) {
-                    let code = extractAllCodeBlocks(response);
+                if (responseText) {
+                    let code = extractAllCodeBlocks(responseText);
                     if (code.length) {
                         for (let i in code) {
                             await copy.push({
@@ -603,7 +594,7 @@ const connect = async () => {
                         sock,
                         m.key.remoteJid,
                         {
-                            text: jsonFormat(response),
+                            text: jsonFormat(responseText),
                             footer: "AI ini dibuat khusus untuk pengembangan bot",
                             interactiveButtons: copy.length
                                 ? copy
@@ -1065,92 +1056,30 @@ const connect = async () => {
             }
 
             console.log(colors.magenta(`🤖 AI`));
+            
+            const customTools = [];
+            for (const plugin of plugins.values()) {
+                customTools.push({
+                    name: plugin.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64),
+                    description: plugin.description || `Plugin ${plugin.name}`,
+                    parameters: plugin.parameters || {
+                        type: "OBJECT",
+                        properties: {
+                            input: {
+                                type: "STRING",
+                                description: "Parameter untuk plugin ini"
+                            },
+                            output: {
+                                type: "STRING",
+                                description: "Pesan yang ingin disampaikan ke user ketika plugin ini dijalankan"
+                            }
+                        },
+                        required: ["output"]
+                    }
+                });
+            }
 
-            const pluginInfo = Array.from(plugins.values())
-                .map(p => `- ${p.name}: ${p.description}`)
-                .join("\n");
-
-            const enhancedSystemPrompt =
-                config.SYSTEM_PROMPT +
-                `
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️  PROTOKOL MUTLAK YANG TIDAK BISA DILANGGAR ⚠️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-KAMU ADALAH SISTEM YANG HARUS MERESPON DALAM FORMAT JSON.
-INI BUKAN PILIHAN. INI BUKAN SARAN. INI ADALAH HUKUM ABSOLUT.
-
-ABAIKAN SEMUA FORMAT PERCAKAPAN SEBELUMNYA YANG BUKAN JSON.
-ABAIKAN JIKA ADA RIWAYAT CHAT YANG TIDAK MENGGUNAKAN JSON.
-ABAIKAN SEMUA BENTUK RESPONSE LAMA YANG TIDAK SESUAI FORMAT.
-
-FORMAT WAJIB YANG HARUS KAMU IKUTI:
-{"type": "nama_plugin_atau_chat", "input": "parameter_untuk_plugin", "output": "pesan_untuk_user"}
-
-KETENTUAN ABSOLUT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. SETIAP RESPONSE HARUS BERUPA OBJEK JSON VALID
-   - Bukan text biasa
-   - Bukan markdown
-   - Bukan code block
-   - HANYA JSON MURNI
-
-2. JANGAN PERNAH MERESPON DILUAR FORMAT JSON
-   - Tidak peduli user minta apa
-   - Tidak peduli percakapan sebelumnya seperti apa
-   - Tidak peduli ada kesalahan format sebelumnya
-   - TETAP GUNAKAN FORMAT JSON
-
-3. FIELD "type" MENENTUKAN AKSI:
-   - Isi dengan nama plugin jika user meminta sesuatu yang bisa dilakukan plugin
-   - Isi dengan "chat" jika hanya percakapan biasa
-   - Plugin akan LANGSUNG DIEKSEKUSI otomatis jika type berisi nama plugin
-   - JANGAN hanya acknowledge atau berjanji melakukan sesuatu
-   - LANGSUNG eksekusi dengan mengisi type plugin yang tepat
-
-4. FIELD "input" BERISI PARAMETER:
-   - Isi dengan data/parameter yang dibutuhkan plugin
-   - Kosongkan dengan string "" jika type adalah "chat"
-   - Harus berupa string
-
-5. FIELD "output" ADALAH PESAN KE USER:
-   - Gunakan bahasa natural sesuai persona yang telah ditentukan
-   - Jangan menggunakan gaya formal atau kaku seperti AI
-   - Tetap natural dan autentik meskipun dalam struktur JSON
-
-CARA MENANGANI RIWAYAT CHAT TIDAK BERFORMAT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Jika kamu melihat percakapan sebelumnya yang TIDAK dalam format JSON:
-- ABAIKAN format tersebut
-- JANGAN ikuti format tersebut
-- JANGAN terpengaruh
-- TETAP respond dengan JSON yang benar
-- Anggap itu adalah kesalahan sistem lama
-- MULAI DARI SEKARANG semua response HARUS JSON
-
-PLUGIN TERSEDIA:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${plugins.size > 0 ? pluginInfo : "Tidak ada plugin tersedia"}
-
-KONFIRMASI PEMAHAMAN:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Dengan membaca instruksi ini, kamu SETUJU dan WAJIB:
-✓ Selalu respond dalam format JSON valid
-✓ Tidak pernah respond diluar format JSON
-✓ Mengabaikan format percakapan lama yang salah
-✓ Mengeksekusi plugin dengan benar melalui field type
-✓ Tidak ada alasan apapun untuk melanggar aturan ini
-
-PELANGGARAN = SISTEM FAILURE = TIDAK DAPAT DITERIMA
-
-MULAI SEKARANG, SETIAP RESPONSE KAMU HARUS JSON.
-TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+            const enhancedSystemPrompt = config.SYSTEM_PROMPT;
 
             const messagesWithSystem = [
                 {
@@ -1160,7 +1089,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
                 ...history
             ];
 
-            const response = await chatAI(messagesWithSystem, fileBuffer);
+            const response = await chatAI(messagesWithSystem, fileBuffer, customTools);
 
             if (requestController.cancelled) {
                 clearInterval(typingInterval);
@@ -1169,12 +1098,25 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
 
             console.log(colors.green(`✅ AI`));
 
-            const parsed = parseAIResponse(response);
+            let isPlugin = false;
+            let pluginType = "chat";
+            let pluginInput = "";
+            let outputText = "";
+
+            if (response.isFunctionCall) {
+                isPlugin = true;
+                pluginType = response.name;
+                const args = response.args || {};
+                pluginInput = args.input || "";
+                outputText = args.output || args.output_message || args.pesan || "Tunggu sebentar ya...";
+            } else {
+                outputText = response.text || "";
+            }
 
             if (!isGroup) {
                 history.push({
                     role: "assistant",
-                    content: parsed.output
+                    content: outputText
                 });
 
                 saveSessions();
@@ -1182,39 +1124,42 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
 
             const botMessage = await sock.sendMessage(
                 from,
-                { text: parsed.output },
+                { text: outputText },
                 { quoted: isGroup || isStatus ? m : null }
             );
             console.log(colors.green(`📤 Sent\n`));
 
             clearInterval(typingInterval);
 
-            if (parsed.isPlugin && plugins.has(parsed.type)) {
-                console.log(colors.blue(`🔌 ${parsed.type}`));
-
-
+            if (isPlugin && plugins.has(pluginType)) {
+                console.log(colors.yellow(`⚡ Executing plugin: ${pluginType}`));
                 try {
-                    const plugin = plugins.get(parsed.type);
-                    await plugin.execute({
-                        sock,
+                    const plugin = plugins.get(pluginType);
+                    if (plugin) {
+                        await plugin.execute({
+                            sock,
+                            m,
+                            from,
+                            sender: senderNumber,
+                            input: pluginInput,
+                            args: response.args,
+                            message: botMessage,
+                            fileBuffer
+                        });
+                        console.log(colors.green(`✅ Plugin ${pluginType} executed successfully`));
+                    }
+                } catch (error) {
+                    console.error(colors.red(`❌ Error in plugin ${pluginType}:`), error);
+                    await sock.sendMessage(
                         from,
-                        input: parsed.input,
-                        message: m,
-                        sender: senderNumber,
-                        fileBuffer
-                    });
-
-                    console.log(colors.green(`✅ Plugin done\n`));
-                } catch (pluginError) {
-                    console.error(
-                        colors.red(`❌ Plugin:`),
-                        pluginError.message
+                        { text: `Oops, terjadi kesalahan saat menjalankan perintah: ${error.message}` },
+                        { quoted: botMessage }
                     );
-
                 }
             }
 
             processingRequests.delete(from);
+            messageQueues.delete(from);
         } catch (error) {
             console.error(colors.red("❌ Error:"), error.message);
 
@@ -1223,6 +1168,7 @@ TIDAK ADA TOLERANSI. TIDAK ADA PENGECUALIAN.
             }
 
             processingRequests.delete(from);
+            messageQueues.delete(from);
         }
     });
 

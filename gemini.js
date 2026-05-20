@@ -1,5 +1,12 @@
 import axios from "axios";
+import http from "http";
+import https from "https";
 import { fileTypeFromBuffer } from "file-type";
+
+const axiosInstance = axios.create({
+    httpAgent: new http.Agent({ keepAlive: true }),
+    httpsAgent: new https.Agent({ keepAlive: true })
+});
 
 const CONFIG = {
     GEMINI: {
@@ -56,9 +63,15 @@ async function detectMimeType(buffer) {
     return result?.mime ?? "application/octet-stream";
 }
 
+let cachedToken = null;
+let tokenExpiry = 0;
+
 async function getNewToken() {
+    if (cachedToken && Date.now() < tokenExpiry) {
+        return cachedToken;
+    }
     try {
-        const response = await axios.post(
+        const response = await axiosInstance.post(
             "https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key=AIzaSyAxof8_SbpDcww38NEQRhNh0Pzvbphh-IQ",
             { clientType: "CLIENT_TYPE_ANDROID" },
             {
@@ -74,13 +87,16 @@ async function getNewToken() {
                 }
             }
         );
-        return response.data.idToken;
+        cachedToken = response.data.idToken;
+        // Firebase tokens are valid for 1 hour. Cache it for 55 minutes to be safe.
+        tokenExpiry = Date.now() + 55 * 60 * 1000;
+        return cachedToken;
     } catch (error) {
         return null;
     }
 }
 
-async function chat(messages = [], fileBuffer = null) {
+async function chat(messages = [], fileBuffer = null, customTools = []) {
     const token = await getNewToken();
     if (!token) throw new Error("Gagal mendapatkan token autentikasi Gemmy");
 
@@ -141,12 +157,16 @@ async function chat(messages = [], fileBuffer = null) {
                 temperature: 1,
                 topP: 0.95
             },
-            tools: [
-                {
-                    googleSearch: {},
-                    urlContext: {}
-                }
+            tools: customTools.length > 0 ? [
+                { functionDeclarations: customTools },
+                { googleSearch: {} }
+            ] : [
+                { googleSearch: {} }
             ],
+            toolConfig: {
+                functionCallingConfig: { mode: "AUTO" },
+                ...(customTools.length > 0 && { includeServerSideToolInvocations: true })
+            },
             safetySettings: [
                 {
                     category: "HARM_CATEGORY_HARASSMENT",
@@ -180,10 +200,24 @@ async function chat(messages = [], fileBuffer = null) {
         authorization: `Bearer ${token}`
     };
 
-    const { data } = await axios.post(CONFIG.GEMINI.URL, payload, { headers });
+    const { data } = await axiosInstance.post(CONFIG.GEMINI.URL, payload, { headers });
 
     if (data?.candidates && data.candidates.length > 0) {
-        return data.candidates[0].content.parts[0].text;
+        const parts = data.candidates[0].content.parts;
+        const functionCallPart = parts.find(p => p.functionCall);
+        
+        if (functionCallPart) {
+            return {
+                isFunctionCall: true,
+                name: functionCallPart.functionCall.name,
+                args: functionCallPart.functionCall.args
+            };
+        }
+        
+        return {
+            isFunctionCall: false,
+            text: parts.map(p => p.text).join("")
+        };
     }
 
     throw new Error("No response candidates found");
