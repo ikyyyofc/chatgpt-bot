@@ -110,7 +110,6 @@ function saveSessions() {
     }, 5000);
 }
 
-
 const processingRequests = new Map();
 const messageQueues = new Map();
 
@@ -174,7 +173,11 @@ const connect = async () => {
         state = auth.state;
         saveCreds = auth.saveCreds;
     } catch (err) {
-        console.error(colors.red("❌ Session file corrupted. Deleting session and retrying..."));
+        console.error(
+            colors.red(
+                "❌ Session file corrupted. Deleting session and retrying..."
+            )
+        );
         fs.rmSync(`./${config.SESSION}`, { recursive: true, force: true });
         return connect();
     }
@@ -233,16 +236,27 @@ const connect = async () => {
             const boom = new Boom(lastDisconnect?.error);
             const statusCode = boom?.output?.statusCode;
 
-            const errorMsg = lastDisconnect?.error?.message?.toLowerCase() || "";
-            const isBadSession = 
-                statusCode === 500 || 
-                errorMsg.includes("bad mac") || 
+            const errorMsg =
+                lastDisconnect?.error?.message?.toLowerCase() || "";
+            const isBadSession =
+                statusCode === 500 ||
+                errorMsg.includes("bad mac") ||
                 errorMsg.includes("invalid mac") ||
                 errorMsg.includes("decrypt") ||
                 errorMsg.includes("corrupted");
 
-            if (reason === DisconnectReason.loggedOut || statusCode === 401 || isBadSession) {
-                console.log(colors.red(isBadSession ? "❌ Session corrupted / Invalid MAC" : "❌ Logged out / Session expired"));
+            if (
+                reason === DisconnectReason.loggedOut ||
+                statusCode === 401 ||
+                isBadSession
+            ) {
+                console.log(
+                    colors.red(
+                        isBadSession
+                            ? "❌ Session corrupted / Invalid MAC"
+                            : "❌ Logged out / Session expired"
+                    )
+                );
                 fs.rmSync(`./${config.SESSION}`, {
                     recursive: true,
                     force: true
@@ -347,9 +361,6 @@ const connect = async () => {
             "";
 
         if (m.key.fromMe) return;
-
-
-
 
         const isCommand =
             text.trim().startsWith("/") ||
@@ -541,7 +552,7 @@ const connect = async () => {
                     { role: "user", content: text.slice(4).trim() }
                 ]);
                 const responseText = aiResponseObj.text || "";
-                
+
                 function extractAllCodeBlocks(text) {
                     const regex = /```(.*?)```/gs;
                     const matches = text.matchAll(regex);
@@ -953,7 +964,9 @@ const connect = async () => {
             let history = [];
             if (!isGroup) {
                 if (!userSessions.has(from)) {
-                    userSessions.set(from, []);
+                    userSessions.set(from, [
+                        { role: "assistant", content: "hai kak, sv aku yaa" }
+                    ]);
                 }
                 history = userSessions.get(from);
             }
@@ -1056,11 +1069,13 @@ const connect = async () => {
             }
 
             console.log(colors.magenta(`🤖 AI`));
-            
+
             const customTools = [];
             for (const plugin of plugins.values()) {
                 customTools.push({
-                    name: plugin.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64),
+                    name: plugin.name
+                        .replace(/[^a-zA-Z0-9_-]/g, "_")
+                        .substring(0, 64),
                     description: plugin.description || `Plugin ${plugin.name}`,
                     parameters: plugin.parameters || {
                         type: "OBJECT",
@@ -1071,7 +1086,8 @@ const connect = async () => {
                             },
                             output: {
                                 type: "STRING",
-                                description: "Pesan yang ingin disampaikan ke user ketika plugin ini dijalankan"
+                                description:
+                                    "Pesan yang ingin disampaikan ke user ketika plugin ini dijalankan"
                             }
                         },
                         required: ["output"]
@@ -1089,7 +1105,11 @@ const connect = async () => {
                 ...history
             ];
 
-            const response = await chatAI(messagesWithSystem, fileBuffer, customTools);
+            const response = await chatAI(
+                messagesWithSystem,
+                fileBuffer,
+                customTools
+            );
 
             if (requestController.cancelled) {
                 clearInterval(typingInterval);
@@ -1108,7 +1128,11 @@ const connect = async () => {
                 pluginType = response.name;
                 const args = response.args || {};
                 pluginInput = args.input || "";
-                outputText = args.output || args.output_message || args.pesan || "Tunggu sebentar ya...";
+                outputText =
+                    args.output ||
+                    args.output_message ||
+                    args.pesan ||
+                    "Tunggu sebentar ya...";
             } else {
                 outputText = response.text || "";
             }
@@ -1132,7 +1156,9 @@ const connect = async () => {
             clearInterval(typingInterval);
 
             if (isPlugin && plugins.has(pluginType)) {
-                console.log(colors.yellow(`⚡ Executing plugin: ${pluginType}`));
+                console.log(
+                    colors.yellow(`⚡ Executing plugin: ${pluginType}`)
+                );
                 try {
                     const plugin = plugins.get(pluginType);
                     if (plugin) {
@@ -1146,13 +1172,22 @@ const connect = async () => {
                             message: botMessage,
                             fileBuffer
                         });
-                        console.log(colors.green(`✅ Plugin ${pluginType} executed successfully`));
+                        console.log(
+                            colors.green(
+                                `✅ Plugin ${pluginType} executed successfully`
+                            )
+                        );
                     }
                 } catch (error) {
-                    console.error(colors.red(`❌ Error in plugin ${pluginType}:`), error);
+                    console.error(
+                        colors.red(`❌ Error in plugin ${pluginType}:`),
+                        error
+                    );
                     await sock.sendMessage(
                         from,
-                        { text: `Oops, terjadi kesalahan saat menjalankan perintah: ${error.message}` },
+                        {
+                            text: `Oops, terjadi kesalahan saat menjalankan perintah: ${error.message}`
+                        },
                         { quoted: botMessage }
                     );
                 }
@@ -1172,7 +1207,7 @@ const connect = async () => {
         }
     });
 
-   /* sock.ev.on("call", async call => {
+    /* sock.ev.on("call", async call => {
         const { status, id, from } = call[0];
         if (status === "offer") {
             await sock.rejectCall(id, from);
