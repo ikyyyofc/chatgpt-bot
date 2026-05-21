@@ -951,12 +951,16 @@ const connect = async () => {
             await sock.sendPresenceUpdate("composing", from);
 
             let history = [];
-            if (!isGroup) {
-                if (!userSessions.has(from)) {
-                    userSessions.set(from, []);
-                }
-                history = userSessions.get(from);
-            }
+if (!isGroup) {
+    if (!userSessions.has(from)) {
+        userSessions.set(from, []);
+    }
+    history = [
+        { role: "assistant", content: "hai kak, sv aku yaa" },
+        ...userSessions.get(from)
+    ];
+}
+
 
             const messagesToProcess = [...queue];
             queue.length = 0;
