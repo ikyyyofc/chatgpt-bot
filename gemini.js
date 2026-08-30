@@ -1,25 +1,29 @@
 import axios from "axios";
-import http from "http";
-import https from "https";
 import { fileTypeFromBuffer } from "file-type";
 
-const axiosInstance = axios.create({
-    httpAgent: new http.Agent({ keepAlive: true }),
-    httpsAgent: new https.Agent({ keepAlive: true })
-});
-
-const CONFIG = {
-    GEMINI: {
-        URL: "https://us-central1-gemmy-ai-bdc03.cloudfunctions.net/gemini",
-        MODEL: "gemini-pro-latest",
-        HEADERS: {
-            "User-Agent": "okhttp/5.3.2",
-            "Accept-Encoding": "gzip",
-            "content-type": "application/json; charset=UTF-8"
-        }
+// ============================================
+// 1. KONFIGURASI MODEL & HEADERS (Sama dengan plugins/ai.js)
+// ============================================
+const GEMINI = {
+    URL: "https://firebasevertexai.googleapis.com/v1beta/projects/gemmy-ai-bdc03/models",
+    MODEL: "gemini-flash-latest",
+    HEADERS: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": "AIzaSyAxof8_SbpDcww38NEQRhNh0Pzvbphh-IQ",
+        "x-goog-api-client": "gl-kotlin/2.2.21-ai fire/17.7.0",
+        "x-firebase-appid": "1:652803432695:android:c4341db6033e62814f33f2",
+        "x-firebase-appversion": "128"
     }
 };
 
+const geminiState = {
+    token: null,
+    count: 0
+};
+
+// ============================================
+// 2. MIME TYPES YANG DIDUKUNG
+// ============================================
 const SUPPORTED_MIMES = new Set([
     "image/jpeg",
     "image/png",
@@ -63,15 +67,12 @@ async function detectMimeType(buffer) {
     return result?.mime ?? "application/octet-stream";
 }
 
-let cachedToken = null;
-let tokenExpiry = 0;
-
+// ============================================
+// 3. AUTHENTICATION & REQUEST (Sama dengan plugins/ai.js)
+// ============================================
 async function getNewToken() {
-    if (cachedToken && Date.now() < tokenExpiry) {
-        return cachedToken;
-    }
     try {
-        const response = await axiosInstance.post(
+        const response = await axios.post(
             "https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key=AIzaSyAxof8_SbpDcww38NEQRhNh0Pzvbphh-IQ",
             { clientType: "CLIENT_TYPE_ANDROID" },
             {
@@ -87,30 +88,104 @@ async function getNewToken() {
                 }
             }
         );
-        cachedToken = response.data.idToken;
-        // Firebase tokens are valid for 1 hour. Cache it for 55 minutes to be safe.
-        tokenExpiry = Date.now() + 55 * 60 * 1000;
-        return cachedToken;
-    } catch (error) {
+        return response.data.idToken;
+    } catch {
         return null;
     }
 }
 
-async function chat(messages = [], fileBuffer = null, customTools = []) {
-    const token = await getNewToken();
-    if (!token) throw new Error("Gagal mendapatkan token autentikasi Gemmy");
+function isThrottled(error) {
+    const status = error.response?.status;
+    const msg = (
+        error.response?.data?.error?.message ||
+        error.message ||
+        ""
+    ).toLowerCase();
+    return (
+        status === 429 ||
+        [
+            "quota",
+            "rate",
+            "resource exhausted",
+            "too many requests",
+            "limit"
+        ].some(k => msg.includes(k))
+    );
+}
 
-    const systemMsg = messages.find(m => m.role === "system");
+async function fetchGemini(url, payload) {
+    let lastError;
+    for (let i = 0; i < 3; i++) {
+        try {
+            geminiState.count++;
+            if (geminiState.count >= 5 && geminiState.token) {
+                geminiState.token = await getNewToken();
+                geminiState.count = 0;
+            }
+            const headers = { ...GEMINI.HEADERS };
+            if (geminiState.token) {
+                headers["Authorization"] = `Bearer ${geminiState.token}`;
+            }
+            return await axios.post(url, payload, { headers });
+        } catch (error) {
+            lastError = error;
+            if (isThrottled(error) && i < 2) {
+                geminiState.token = await getNewToken();
+                geminiState.count = 0;
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+}
+
+// ============================================
+// 4. SANITIZATION (Thought Signature)
+// ============================================
+function ensureThoughtSignature(part) {
+    if (part.functionCall && !part.thoughtSignature) {
+        return {
+            ...part,
+            thoughtSignature: "skip_thought_signature_validator"
+        };
+    }
+    return part;
+}
+
+function sanitizeParts(parts) {
+    if (!Array.isArray(parts)) return parts;
+    return parts.map(ensureThoughtSignature);
+}
+
+function sanitizeHistory(history) {
+    return history.map(entry => ({
+        ...entry,
+        parts: sanitizeParts(entry.parts)
+    }));
+}
+
+// ============================================
+// 5. MAIN CHAT FUNCTION
+// ============================================
+async function chat(messages = [], fileBuffer = null, customTools = []) {
+    const msgArray = Array.isArray(messages)
+        ? messages
+        : typeof messages === "string"
+        ? [{ role: "user", content: messages }]
+        : [];
+
+    const systemMsg = msgArray.find(m => m.role === "system");
     const systemInstructionText = systemMsg
         ? typeof systemMsg.content === "string"
             ? systemMsg.content
             : (systemMsg.parts?.[0]?.text ?? "")
         : undefined;
 
-    const history = messages
+    const history = msgArray
         .filter(m => m.role !== "system")
         .map(m => ({
-            role: m.role === "assistant" ? "model" : m.role,
+            role: m.role === "assistant" ? "model" : m.role || "user",
             parts:
                 typeof m.content === "string"
                     ? [{ text: m.content }]
@@ -146,18 +221,11 @@ async function chat(messages = [], fileBuffer = null, customTools = []) {
         }
     }
 
+    const preparedHistory = sanitizeHistory(history);
+
     const payload = {
-        model: CONFIG.GEMINI.MODEL,
-        request: {
-            contents: history,
-            generationConfig: {
-                thinkingConfig: {
-                    thinkingLevel: "HIGH"
-                },
-                temperature: 1,
-                topP: 0.95
-            },
-            tools: customTools.length > 0 ? [
+        contents: preparedHistory,
+        tools: customTools.length > 0 ? [
                 { functionDeclarations: customTools },
                 { googleSearch: {} }
             ] : [
@@ -167,60 +235,51 @@ async function chat(messages = [], fileBuffer = null, customTools = []) {
                 functionCallingConfig: { mode: "AUTO" },
                 ...(customTools.length > 0 && { includeServerSideToolInvocations: true })
             },
-            safetySettings: [
-                {
-                    category: "HARM_CATEGORY_HARASSMENT",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_HATE_SPEECH",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold: "BLOCK_NONE"
-                }
-            ],
-            ...(systemInstructionText && {
-                systemInstruction: {
-                    role: "user",
-                    parts: [{ text: systemInstructionText }]
-                }
-            })
+        ...(systemInstructionText && {
+            systemInstruction: {
+                role: "system",
+                parts: [{ text: systemInstructionText }]
+            }
+        }),
+        generationConfig: {
+            thinkingConfig: { thinkingLevel: "HIGH" },
+            temperature: 1
         },
-        stream: false
+        safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            {
+                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold: "BLOCK_NONE"
+            },
+            {
+                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold: "BLOCK_NONE"
+            }
+        ]
     };
 
-    const headers = {
-        ...CONFIG.GEMINI.HEADERS,
-        authorization: `Bearer ${token}`
-    };
+    const { data } = await fetchGemini(
+        `${GEMINI.URL}/${GEMINI.MODEL}:generateContent`,
+        payload
+    );
 
-    const { data } = await axiosInstance.post(CONFIG.GEMINI.URL, payload, { headers });
+    const candidate = data?.candidates?.[0];
+    const responseParts = candidate?.content?.parts;
 
-    if (data?.candidates && data.candidates.length > 0) {
-        const parts = data.candidates[0].content.parts;
-        const functionCallPart = parts.find(p => p.functionCall);
-        
-        if (functionCallPart) {
-            return {
-                isFunctionCall: true,
-                name: functionCallPart.functionCall.name,
-                args: functionCallPart.functionCall.args
-            };
-        }
-        
-        return {
-            isFunctionCall: false,
-            text: parts.map(p => p.text).join("")
-        };
+    if (!responseParts || responseParts.length === 0) {
+        const reason = candidate?.finishReason;
+        throw new Error(
+            reason && reason !== "STOP"
+                ? `Respons diblokir safety filter (reason: ${reason})`
+                : "Respons kosong dari AI"
+        );
     }
 
-    throw new Error("No response candidates found");
+    return responseParts
+        .map(p => p.text || "")
+        .join("")
+        .trim();
 }
 
 export default chat;
